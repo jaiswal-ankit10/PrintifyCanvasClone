@@ -15,7 +15,7 @@ export default function EditProduct() {
   const product = products.find((p) => p.id === productId);
   const [activeSide, setActiveSide] = useState(product.sides[0].key);
   const [isPanMode, setIsPanMode] = useState(false);
-  const [zoom, setZoom] = useState(7);
+  const [zoom, setZoom] = useState(100);
   const [mockupState, setMockupState] = useState({});
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#f8f8f6]">

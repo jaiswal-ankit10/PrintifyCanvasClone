@@ -1,150 +1,137 @@
 import { useEffect, useRef } from "react";
 import * as fabric from "fabric";
 
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v));
-}
-
 export default function CanvasArea({
   mockup,
   isPanMode,
   activeMode,
   activeSide,
-  mockupState,
-  setMockupState,
   zoom,
 }) {
   const canvasRef = useRef(null);
   const fabricRef = useRef(null);
-  const mockupRef = useRef(null);
-  const lastPos = useRef(null);
-  const zoomAnimRef = useRef(null);
+  const lastPos = useRef({ x: 0, y: 0 });
   const panEnabledRef = useRef(isPanMode);
-  const modeRef = useRef(activeMode);
 
-  // INIT CANVAS
+  // 1. INIT CANVAS
   useEffect(() => {
     const canvas = new fabric.Canvas(canvasRef.current, {
       width: 1024,
       height: 600,
+      backgroundColor: "#f5f5f0",
       selection: false,
     });
 
     fabricRef.current = canvas;
 
-    // PRINT AREA (fixed)
+    // PRINT AREA (Dotted box)
     const printArea = new fabric.Rect({
-      left: 210,
-      top: 100,
-      width: 300,
-      height: 320,
+      left: canvas.width / 2,
+      top: canvas.height / 2 - 20,
+      width: 220,
+      height: 300,
+      originX: "center",
+      originY: "center",
       fill: "transparent",
       stroke: "#9a9a9a",
-      strokeDashArray: [6, 6],
+      strokeDashArray: [5, 5],
       selectable: false,
       evented: false,
+      strokeWidth: 1,
     });
 
     canvas.add(printArea);
 
-    // PAN LOGIC (PRINTIFY STYLE)
+    // VIEWPORT PANNING
     canvas.on("mouse:down", (opt) => {
-      if (!panEnabledRef.current || modeRef.current !== "edit") return;
-      lastPos.current = opt.pointer;
-      canvas.defaultCursor = "grabbing";
+      if (panEnabledRef.current) {
+        canvas.isDragging = true;
+        lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
+        canvas.defaultCursor = "grabbing";
+      }
     });
 
     canvas.on("mouse:move", (opt) => {
-      if (!lastPos.current || !panEnabledRef.current) return;
-
-      const e = opt.e;
-      const vpt = canvas.viewportTransform;
-
-      // This moves the "camera", not the objects
-      vpt[4] += e.clientX - lastPos.current.x;
-      vpt[5] += e.clientY - lastPos.current.y;
-
-      canvas.requestRenderAll();
-      lastPos.current = { x: e.clientX, y: e.clientY };
+      if (canvas.isDragging) {
+        const vpt = canvas.viewportTransform;
+        vpt[4] += opt.e.clientX - lastPos.current.x;
+        vpt[5] += opt.e.clientY - lastPos.current.y;
+        canvas.requestRenderAll();
+        lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
+      }
     });
 
     canvas.on("mouse:up", () => {
-      lastPos.current = null;
-      canvas.defaultCursor =
-        isPanMode && activeMode === "edit" ? "grab" : "default";
-
-      if (mockupRef.current) {
-        setMockupState((prev) => ({
-          ...prev,
-          [activeSide]: {
-            x: mockupRef.current.left,
-            y: mockupRef.current.top,
-            scale: mockupRef.current.scaleX,
-          },
-        }));
-      }
+      canvas.isDragging = false;
+      canvas.defaultCursor = panEnabledRef.current ? "grab" : "default";
     });
 
     return () => canvas.dispose();
   }, []);
 
-  // LOAD MOCKUP PER SIDE
+  // 2. LOAD MOCKUP (Robust Loading)
   useEffect(() => {
-    if (!fabricRef.current) return;
+    if (!fabricRef.current || !mockup) return;
     const canvas = fabricRef.current;
 
-    canvas.getObjects("image").forEach((o) => canvas.remove(o));
+    // Clear previous images
+    const existingImages = canvas.getObjects("image");
+    existingImages.forEach((img) => canvas.remove(img));
 
-    fabric.Image.fromURL(mockup, (img) => {
-      const saved = mockupState[activeSide];
+    const imgElement = new Image();
+    imgElement.src = mockup;
+    imgElement.crossOrigin = "anonymous";
 
-      img.set({
+    imgElement.onload = () => {
+      const fabricImg = new fabric.Image(imgElement, {
         originX: "center",
         originY: "center",
-        left: saved?.x ?? canvas.width / 2,
-        top: saved?.y ?? canvas.height / 2,
-        scaleX: saved?.scale ?? 1,
-        scaleY: saved?.scale ?? 1,
+        left: canvas.width / 2,
+        top: canvas.height / 2,
         selectable: false,
         evented: false,
       });
 
-      mockupRef.current = img;
-      canvas.add(img);
-      canvas.sendToBack(img);
+      // Match image scale to canvas height
+      const scale = (canvas.height * 0.8) / fabricImg.height;
+      fabricImg.scale(scale);
+
+      canvas.add(fabricImg);
+
+      // FIX: Use the canvas method to send the object to the bottom of the stack
+      canvas.sendObjectToBack(fabricImg);
+
       canvas.requestRenderAll();
-    });
-  }, [mockup, activeSide]);
+    };
 
-  // ZOOM
+    imgElement.onerror = () => {
+      console.error("Could not find image at:", mockup);
+    };
+  }, [mockup]);
 
+  // 3. ZOOM HANDLER (Centered & Scaled)
   useEffect(() => {
     if (!fabricRef.current) return;
     const canvas = fabricRef.current;
 
-    const center = canvas.getCenter();
-    canvas.zoomToPoint(new fabric.Point(center.left, center.top), zoom / 100);
+    // Zoom relative to the center of the viewport
+    const center = new fabric.Point(canvas.width / 2, canvas.height / 2);
+    canvas.zoomToPoint(center, zoom / 100);
 
     canvas.requestRenderAll();
   }, [zoom]);
 
-  // CURSOR MODE
-  useEffect(() => {
-    if (!fabricRef.current) return;
-    fabricRef.current.defaultCursor =
-      isPanMode && activeMode === "edit" ? "grab" : "default";
-  }, [isPanMode, activeMode]);
-
+  // 4. PAN MODE SYNC
   useEffect(() => {
     panEnabledRef.current = isPanMode;
-    modeRef.current = activeMode;
-  }, [isPanMode, activeMode]);
+    if (fabricRef.current) {
+      fabricRef.current.defaultCursor = isPanMode ? "grab" : "default";
+    }
+  }, [isPanMode]);
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <div className="bg-white border rounded shadow-sm">
-        <canvas ref={canvasRef} />
-      </div>
+    <div className="w-full h-full flex items-center justify-center overflow-hidden">
+      <canvas ref={canvasRef} className="outline-none" />
     </div>
   );
 }
