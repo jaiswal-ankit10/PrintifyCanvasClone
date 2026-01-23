@@ -17,12 +17,16 @@ function ShutterstockIcon({ className = "" }) {
   );
 }
 
-function LeftToolbar() {
+function LeftToolbar({ onAddText, onUpload, activeTool, onToolClick }) {
   const tools = [
-    { label: "", icon: <ArrowLeft size={20} /> },
-    { label: "Upload", icon: <Upload size={20} /> },
+    {
+      label: "",
+      icon: <ArrowLeft size={20} />,
+      action: () => window.history.back(),
+    },
+    { label: "Upload", icon: <Upload size={20} />, action: onUpload },
     { label: "AI", icon: <Sparkles size={20} /> },
-    { label: "Add text", icon: <Type size={20} /> },
+    { label: "Add text", icon: <Type size={20} />, action: onAddText },
     { label: "My library", icon: <FolderOpen size={20} /> },
     { label: "Graphics", icon: <Shapes size={20} /> },
     { label: "Templates", icon: <LayoutTemplate size={20} /> },
@@ -33,13 +37,18 @@ function LeftToolbar() {
   ];
 
   return (
-    <div className="w-18 h-full border-r border-gray-200 bg-white flex flex-col items-center py-4 gap-6">
+    <div className="w-18 h-full border-r border-gray-200 bg-white flex flex-col items-center ">
       {tools.map((tool) => (
         <button
           key={tool.label}
-          className="flex flex-col items-center gap-1 text-[10px] text-[#2f2e0c] hover:bg-gray-200 cursor-pointer w-full p-2"
+          onClick={() =>
+            tool.action ? tool.action() : onToolClick(tool.label)
+          }
+          className={`flex flex-col items-center gap-1 text-[10px] w-full p-4 transition-colors cursor-pointer whitespace-nowrap
+            ${activeTool === tool.label ? "bg-[#646323] text-white" : "text-[#2f2e0c] hover:bg-gray-100"}
+          `}
         >
-          <span className="">{tool.icon}</span>
+          {tool.icon}
           {tool.label}
         </button>
       ))}

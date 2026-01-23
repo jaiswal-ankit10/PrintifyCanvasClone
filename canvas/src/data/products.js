@@ -8,19 +8,64 @@ export const products = [
     type: "hoodie",
 
     sides: [
-      { key: "front", label: "Front side" },
-      { key: "back", label: "Back side" },
-      { key: "sleeveLeft", label: "Sleeve left" },
-      { key: "sleeveRight", label: "Sleeve right" },
-      { key: "neck", label: "Neck label inner" },
+      {
+        key: "front",
+        label: "Front side",
+        printDimensions: {
+          width: 150,
+          height: 120,
+          topOffset: -40,
+          leftOffset: 0,
+        },
+      },
+      {
+        key: "back",
+        label: "Back side",
+        printDimensions: {
+          width: 160,
+          height: 180,
+          topOffset: 0,
+          leftOffset: 0,
+        },
+      },
+      {
+        key: "sleeveLeft",
+        label: "Sleeve left",
+        printDimensions: {
+          width: 80,
+          height: 350,
+          topOffset: 0,
+          leftOffset: 0,
+        },
+      },
+      {
+        key: "sleeveRight",
+        label: "Sleeve right",
+        printDimensions: {
+          width: 80,
+          height: 350,
+          topOffset: 0,
+          leftOffset: 0,
+        },
+      },
+      {
+        key: "neck",
+        label: "Neck label inner",
+        printDimensions: {
+          width: 100,
+          height: 90,
+          topOffset: -20,
+          leftOffset: 0,
+        },
+      },
     ],
 
     mockups: {
-      front: "/mockups/hoodie/front.png",
-      back: "/mockups/hoodie/back.png",
-      sleeveLeft: "/mockups/hoodie/sleeve-left.png",
-      sleeveRight: "/mockups/hoodie/sleeve-right.png",
-      neck: "/mockups/hoodie/neck.png",
+      front: "/mockups/hoodies/front.png",
+      back: "/mockups/hoodies/back.png",
+      sleeveLeft: "/mockups/hoodies/sleeveLeft.png",
+      sleeveRight: "/mockups/hoodies/sleeveRight.png",
+      neck: "/mockups/hoodies/neck.png",
     },
   },
 
@@ -33,18 +78,63 @@ export const products = [
     type: "crewneck",
 
     sides: [
-      { key: "front", label: "Front side" },
-      { key: "back", label: "Back side" },
-      { key: "sleeveLeft", label: "Sleeve left" },
-      { key: "sleeveRight", label: "Sleeve right" },
-      { key: "neck", label: "Neck label inner" },
+      {
+        key: "front",
+        label: "Front side",
+        printDimensions: {
+          width: 200,
+          height: 260,
+          topOffset: 15,
+          leftOffset: 0,
+        },
+      },
+      {
+        key: "back",
+        label: "Back side",
+        printDimensions: {
+          width: 200,
+          height: 260,
+          topOffset: 10,
+          leftOffset: 0,
+        },
+      },
+      {
+        key: "sleeveLeft",
+        label: "Sleeve left",
+        printDimensions: {
+          width: 80,
+          height: 350,
+          topOffset: 0,
+          leftOffset: 0,
+        },
+      },
+      {
+        key: "sleeveRight",
+        label: "Sleeve right",
+        printDimensions: {
+          width: 80,
+          height: 350,
+          topOffset: 0,
+          leftOffset: 0,
+        },
+      },
+      {
+        key: "neck",
+        label: "Neck label inner",
+        printDimensions: {
+          width: 100,
+          height: 90,
+          topOffset: -170,
+          leftOffset: 0,
+        },
+      },
     ],
 
     mockups: {
       front: "/mockups/crewneck/front.png",
       back: "/mockups/crewneck/back.png",
-      sleeveLeft: "/mockups/crewneck/sleeve-left.png",
-      sleeveRight: "/mockups/crewneck/sleeve-right.png",
+      sleeveLeft: "/mockups/crewneck/sleeveLeft.png",
+      sleeveRight: "/mockups/crewneck/sleeveRight.png",
       neck: "/mockups/crewneck/neck.png",
     },
   },
@@ -58,13 +148,31 @@ export const products = [
     type: "tshirt",
 
     sides: [
-      { key: "front", label: "Front side" },
-      { key: "back", label: "Back side" },
+      {
+        key: "front",
+        label: "Front side",
+        printDimensions: {
+          width: 200,
+          height: 250,
+          topOffset: 0,
+          leftOffset: 0,
+        },
+      },
+      {
+        key: "back",
+        label: "Back side",
+        printDimensions: {
+          width: 200,
+          height: 250,
+          topOffset: -10,
+          leftOffset: 0,
+        },
+      },
     ],
 
     mockups: {
-      front: "/tshirt.png",
-      back: "/tshirt.png",
+      front: "/mockups/t-shirt/front.png",
+      back: "/mockups/t-shirt/back.png",
     },
   },
 
@@ -77,13 +185,20 @@ export const products = [
     type: "mug",
 
     sides: [
-      { key: "front", label: "Front side" },
-      { key: "back", label: "Back side" },
+      {
+        key: "mug",
+        label: "",
+        printDimensions: {
+          width: 1160,
+          height: 480,
+          topOffset: 0,
+          leftOffset: 0,
+        },
+      },
     ],
 
     mockups: {
-      front: "/mockups/mug/front.png",
-      back: "/mockups/mug/back.png",
+      mug: "/mockups/mug/mug.png",
     },
   },
 ];

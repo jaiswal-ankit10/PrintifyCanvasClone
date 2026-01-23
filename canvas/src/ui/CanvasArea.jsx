@@ -1,137 +1,162 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import * as fabric from "fabric";
+import { useFabric } from "../editor/useFabric";
+import { Loader2 } from "lucide-react";
 
-export default function CanvasArea({
-  mockup,
-  isPanMode,
-  activeMode,
-  activeSide,
-  zoom,
-}) {
-  const canvasRef = useRef(null);
-  const fabricRef = useRef(null);
-  const lastPos = useRef({ x: 0, y: 0 });
-  const panEnabledRef = useRef(isPanMode);
+const CanvasArea = forwardRef(
+  (
+    { mockup, isPanMode, zoom, dimensions, activeSide, setZoom, isProcessing },
+    ref,
+  ) => {
+    const canvasRef = useRef(null);
+    const {
+      fabricRef,
+      initCanvas,
+      loadMockup,
+      addText,
+      uploadImage,
+      updateAllMasks,
+    } = useFabric(dimensions, setZoom);
 
-  // 1. INIT CANVAS
-  useEffect(() => {
-    const canvas = new fabric.Canvas(canvasRef.current, {
-      width: 1024,
-      height: 600,
-      backgroundColor: "#f5f5f0",
-      selection: false,
-    });
+    // Expose methods to parents (LeftToolbar via EditProduct)
+    useImperativeHandle(ref, () => ({
+      addText,
+      uploadImage,
+    }));
 
-    fabricRef.current = canvas;
+    // 1. Initialize Canvas and Print Area
+    useEffect(() => {
+      const canvas = initCanvas(canvasRef.current);
+      const parent = canvasRef.current.parentElement;
 
-    // PRINT AREA (Dotted box)
-    const printArea = new fabric.Rect({
-      left: canvas.width / 2,
-      top: canvas.height / 2 - 20,
-      width: 220,
-      height: 300,
-      originX: "center",
-      originY: "center",
-      fill: "transparent",
-      stroke: "#9a9a9a",
-      strokeDashArray: [5, 5],
-      selectable: false,
-      evented: false,
-      strokeWidth: 1,
-    });
+      const resizeObserver = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          const { width, height } = entry.contentRect;
 
-    canvas.add(printArea);
+          if (fabricRef.current) {
+            // Update Fabric's internal dimensions
+            fabricRef.current.setDimensions({ width, height });
 
-    // VIEWPORT PANNING
-    canvas.on("mouse:down", (opt) => {
-      if (panEnabledRef.current) {
-        canvas.isDragging = true;
-        lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
-        canvas.defaultCursor = "grabbing";
-      }
-    });
+            // RE-CENTER UI: Ensure mockup/print area stay centered after resize
+            const center = fabricRef.current.getCenterPoint();
+            fabricRef.current.getObjects().forEach((obj) => {
+              if (!obj.selectable || obj.name === "printGuide") {
+                obj.set({
+                  left: center.x + (dimensions.leftOffset || 0),
+                  top: center.y + (dimensions.topOffset || 0),
+                });
+                obj.setCoords();
+              }
+            });
 
-    canvas.on("mouse:move", (opt) => {
-      if (canvas.isDragging) {
-        const vpt = canvas.viewportTransform;
-        vpt[4] += opt.e.clientX - lastPos.current.x;
-        vpt[5] += opt.e.clientY - lastPos.current.y;
-        canvas.requestRenderAll();
-        lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
-      }
-    });
-
-    canvas.on("mouse:up", () => {
-      canvas.isDragging = false;
-      canvas.defaultCursor = panEnabledRef.current ? "grab" : "default";
-    });
-
-    return () => canvas.dispose();
-  }, []);
-
-  // 2. LOAD MOCKUP (Robust Loading)
-  useEffect(() => {
-    if (!fabricRef.current || !mockup) return;
-    const canvas = fabricRef.current;
-
-    // Clear previous images
-    const existingImages = canvas.getObjects("image");
-    existingImages.forEach((img) => canvas.remove(img));
-
-    const imgElement = new Image();
-    imgElement.src = mockup;
-    imgElement.crossOrigin = "anonymous";
-
-    imgElement.onload = () => {
-      const fabricImg = new fabric.Image(imgElement, {
-        originX: "center",
-        originY: "center",
-        left: canvas.width / 2,
-        top: canvas.height / 2,
-        selectable: false,
-        evented: false,
+            fabricRef.current.requestRenderAll();
+          }
+        }
       });
 
-      // Match image scale to canvas height
-      const scale = (canvas.height * 0.8) / fabricImg.height;
-      fabricImg.scale(scale);
+      resizeObserver.observe(parent);
 
-      canvas.add(fabricImg);
+      return () => {
+        resizeObserver.disconnect();
+        canvas.dispose();
+      };
+    }, [initCanvas]);
 
-      // FIX: Use the canvas method to send the object to the bottom of the stack
-      canvas.sendObjectToBack(fabricImg);
+    //  Update Visual Guide & Masks when Side or Dimensions change
+    useEffect(() => {
+      if (!fabricRef.current) return;
+      const canvas = fabricRef.current;
 
-      canvas.requestRenderAll();
-    };
+      // Remove old guide if it exists
+      const existingGuide = canvas
+        .getObjects()
+        .find((obj) => obj.name === "printGuide");
+      if (existingGuide) canvas.remove(existingGuide);
 
-    imgElement.onerror = () => {
-      console.error("Could not find image at:", mockup);
-    };
-  }, [mockup]);
+      // Create new Visual Guide with updated dimensions
+      const printArea = new fabric.Rect({
+        name: "printGuide",
+        left: canvas.width / 2 + (dimensions.leftOffset || 0),
+        top: canvas.height / 2 + (dimensions.topOffset || 0),
+        width: dimensions.width,
+        height: dimensions.height,
+        originX: "center",
+        originY: "center",
+        fill: "transparent",
+        stroke: "#9a9a9a",
+        strokeDashArray: [5, 5],
+        selectable: false,
+        evented: false,
+        strokeWidth: 1,
+        clipPath: null,
+      });
 
-  // 3. ZOOM HANDLER (Centered & Scaled)
-  useEffect(() => {
-    if (!fabricRef.current) return;
-    const canvas = fabricRef.current;
+      canvas.add(printArea);
+      updateAllMasks(dimensions);
 
-    // Zoom relative to the center of the viewport
-    const center = new fabric.Point(canvas.width / 2, canvas.height / 2);
-    canvas.zoomToPoint(center, zoom / 100);
+      canvas.renderAll();
+    }, [activeSide, dimensions, updateAllMasks]);
 
-    canvas.requestRenderAll();
-  }, [zoom]);
+    // 2. Sync Mockup
+    useEffect(() => {
+      loadMockup(mockup);
+    }, [mockup, loadMockup]);
 
-  // 4. PAN MODE SYNC
-  useEffect(() => {
-    panEnabledRef.current = isPanMode;
-    if (fabricRef.current) {
-      fabricRef.current.defaultCursor = isPanMode ? "grab" : "default";
-    }
-  }, [isPanMode]);
+    // 3. Sync Zoom
+    useEffect(() => {
+      if (!fabricRef.current) return;
+      const canvas = fabricRef.current;
+      const currentZoom = canvas.getZoom();
+      const targetZoom = zoom / 100;
 
-  return (
-    <div className="w-full h-full flex items-center justify-center overflow-hidden">
-      <canvas ref={canvasRef} className="outline-none" />
-    </div>
-  );
-}
+      if (currentZoom !== targetZoom) {
+        const center = canvas.getCenterPoint();
+        canvas.zoomToPoint(new fabric.Point(center.x, center.y), targetZoom);
+      }
+    }, [zoom]);
+
+    // 4. Sync Pan Mode State
+    useEffect(() => {
+      if (!fabricRef.current) return;
+      const canvas = fabricRef.current;
+      canvas.isPanModeActive = isPanMode; // Bridge to the hook's event listener
+      canvas.defaultCursor = isPanMode ? "grab" : "default";
+      canvas.selection = !isPanMode;
+
+      // Toggle selectability of designs based on pan mode
+      canvas.getObjects().forEach((obj) => {
+        if (obj.type !== "rect") obj.selectable = !isPanMode;
+      });
+      canvas.renderAll();
+    }, [isPanMode]);
+
+    return (
+      <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+        <canvas ref={canvasRef} className="outline-none" />
+
+        {/* Localized Print Area Loader */}
+        {isProcessing && (
+          <div
+            className="absolute z-30 flex flex-col items-center justify-center bg-white/40 backdrop-blur-[2px] rounded-sm transition-all duration-300"
+            style={{
+              width: `${dimensions.width}px`,
+              height: `${dimensions.height}px`,
+              // Position it exactly where the printGuide is
+              transform: `translate(${dimensions.leftOffset || 0}px, ${(dimensions.topOffset || 0) - 20}px) scale(${zoom / 100})`,
+            }}
+          >
+            <div className="relative">
+              <Loader2 className="w-8 h-8 animate-spin text-[#646323]" />
+              <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-[#646323] animate-ping opacity-20"></div>
+            </div>
+            <span className="mt-2 text-[10px] font-bold text-[#646323] uppercase tracking-tighter">
+              Processing
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  },
+);
+
+export default CanvasArea;

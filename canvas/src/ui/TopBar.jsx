@@ -2,7 +2,7 @@ import { Info, PencilRuler, Redo2, Undo2 } from "lucide-react";
 
 export default function TopBar({ activeMode, setActiveMode }) {
   return (
-    <div className="  bg-[#f5f5f0] flex items-center justify-between p-5">
+    <div className="  bg-[#f5f5f0] flex items-center justify-between py-2 px-4">
       {/* Left */}
       <div className="flex items-center gap-6">
         <button title="Undo" className="cursor-pointer">

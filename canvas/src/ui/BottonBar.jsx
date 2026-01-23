@@ -88,7 +88,7 @@ export default function BottomBar({ isPanMode, setIsPanMode, zoom, setZoom }) {
         {/* Hand (Pan tool) */}
         <button
           onClick={() => setIsPanMode((prev) => !prev)}
-          className={`w-8 h-8 flex items-center justify-center border rounded
+          className={`w-8 h-8 flex items-center justify-center border border-gray-200 rounded
     ${isPanMode ? "bg-gray-200" : "bg-white hover:bg-gray-100"}
   `}
         >
