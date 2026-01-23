@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import TopBar from "../ui/TopBar";
 import LeftToolbar from "../ui/LeftToolBar";
 import CanvasArea from "../ui/CanvasArea";
@@ -24,17 +24,65 @@ export default function EditProduct() {
   const [zoom, setZoom] = useState(100);
   const [mockupState, setMockupState] = useState({});
   const [activeTool, setActiveTool] = useState(null);
+  const [layers, setLayers] = useState([]);
+
+  const [canvasData, setCanvasData] = useState({
+    front: null,
+    back: null,
+    sleeveLeft: null,
+    sleeveRight: null,
+    neck: null,
+  });
 
   const activeSideData = product.sides.find((s) => s.key === activeSide);
   const currentDimensions = activeSideData.printDimensions;
-  const handleAddText = () => canvasAreaRef.current?.addText();
+
+  // Inside EditProduct.jsx
+  const handleAddText = (content, fontFamily) => {
+    canvasAreaRef.current?.addText(content, fontFamily);
+
+    const canvas = canvasAreaRef.current?.getCanvas();
+    if (canvas) {
+      const jsonData = canvas.toJSON([
+        "name",
+        "selectable",
+        "evented",
+        "clipPath",
+        "fontFamily",
+      ]);
+      setCanvasData((prev) => ({ ...prev, [activeSide]: jsonData }));
+
+      const userObjects = canvas
+        .getObjects()
+        .filter((obj) => obj.selectable && obj.name !== "printGuide");
+      setLayers([...userObjects].reverse());
+    }
+  };
   const handleUpload = () => canvasAreaRef.current?.uploadImage();
+
   const handleToolClick = (toolLabel) => {
     setActiveTool((prev) => (prev === toolLabel ? null : toolLabel));
   };
+
+  const handleSideChange = (newSide) => {
+    if (newSide === activeSide) return;
+
+    const canvas = canvasAreaRef.current?.getCanvas();
+    if (canvas) {
+      const jsonData = canvas.toJSON([
+        "name",
+        "selectable",
+        "evented",
+        "clipPath",
+        "fontFamily",
+      ]);
+      setCanvasData((prev) => ({ ...prev, [activeSide]: jsonData }));
+    }
+
+    setActiveSide(newSide);
+  };
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#f8f8f6]">
-      {/* Main Editor Area */}
+    <div className="h-screen w-screen overflow-hidden bg-[#f8f8f6] ">
       <div className="flex flex-1 overflow-hidden">
         <div className="shrink-0 h-screen">
           <LeftToolbar
@@ -43,8 +91,14 @@ export default function EditProduct() {
             onToolClick={handleToolClick}
           />
         </div>
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <TopBar activeMode={activeMode} setActiveMode={setActiveMode} />
+
+        <div className="flex-1 flex flex-col overflow-hidden ">
+          <TopBar
+            activeMode={activeMode}
+            setActiveMode={setActiveMode}
+            setIsEditOpen={setIsEditOpen}
+            isEditOpen={isEditOpen}
+          />
           <SidePanel
             title={activeTool}
             isOpen={!!activeTool}
@@ -59,36 +113,33 @@ export default function EditProduct() {
             )}
             {activeTool === "AI" && <AIGenerator />}
             {activeTool === "Graphics" && <GraphicsLibrary />}
-            {/* Add other tool components here */}
           </SidePanel>
-          {/* Canvas */}
+
           <div className="relative flex-1 bg-[#f5f5f0] overflow-hidden">
-            {/* CANVAS STAGE */}
             <div className="absolute inset-0 flex items-center justify-center">
               <CanvasArea
                 ref={canvasAreaRef}
                 mockup={product.mockups[activeSide]}
                 isPanMode={isPanMode}
-                activeMode={activeMode}
                 activeSide={activeSide}
                 dimensions={currentDimensions}
-                mockupState={mockupState}
-                setMockupState={setMockupState}
                 zoom={zoom}
                 setZoom={setZoom}
                 isProcessing={isProcessing}
+                sideData={canvasData[activeSide]}
+                setLayers={setLayers}
               />
             </div>
 
-            {/* SIDE TABS */}
             <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
               <SideTabs
                 sides={product.sides}
                 activeSide={activeSide}
-                setActiveSide={setActiveSide}
+                setActiveSide={handleSideChange}
               />
             </div>
           </div>
+
           <BottonBar
             isPanMode={isPanMode}
             setIsPanMode={setIsPanMode}
@@ -96,6 +147,14 @@ export default function EditProduct() {
             setZoom={setZoom}
           />
         </div>
+
+        <RightPanel
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          layers={layers}
+          canvasRef={canvasAreaRef}
+          setLayers={setLayers}
+        />
       </div>
     </div>
   );

@@ -1,11 +1,27 @@
-import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
+import {
+  useEffect,
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+  useMemo,
+} from "react";
 import * as fabric from "fabric";
 import { useFabric } from "../editor/useFabric";
 import { Loader2 } from "lucide-react";
 
 const CanvasArea = forwardRef(
   (
-    { mockup, isPanMode, zoom, dimensions, activeSide, setZoom, isProcessing },
+    {
+      mockup,
+      isPanMode,
+      zoom,
+      dimensions,
+      activeSide,
+      setZoom,
+      isProcessing,
+      sideData,
+      setLayers,
+    },
     ref,
   ) => {
     const canvasRef = useRef(null);
@@ -18,13 +34,16 @@ const CanvasArea = forwardRef(
       updateAllMasks,
     } = useFabric(dimensions, setZoom);
 
-    // Expose methods to parents (LeftToolbar via EditProduct)
+    // Memoize sideData to prevent unnecessary re-renders
+    const memoizedSideData = useMemo(() => sideData, [sideData, activeSide]);
+
     useImperativeHandle(ref, () => ({
       addText,
       uploadImage,
+      getCanvas: () => fabricRef.current,
     }));
 
-    // 1. Initialize Canvas and Print Area
+    // 1. Initialize Canvas
     useEffect(() => {
       const canvas = initCanvas(canvasRef.current);
       const parent = canvasRef.current.parentElement;
@@ -32,12 +51,8 @@ const CanvasArea = forwardRef(
       const resizeObserver = new ResizeObserver((entries) => {
         for (let entry of entries) {
           const { width, height } = entry.contentRect;
-
           if (fabricRef.current) {
-            // Update Fabric's internal dimensions
             fabricRef.current.setDimensions({ width, height });
-
-            // RE-CENTER UI: Ensure mockup/print area stay centered after resize
             const center = fabricRef.current.getCenterPoint();
             fabricRef.current.getObjects().forEach((obj) => {
               if (!obj.selectable || obj.name === "printGuide") {
@@ -48,32 +63,53 @@ const CanvasArea = forwardRef(
                 obj.setCoords();
               }
             });
-
             fabricRef.current.requestRenderAll();
           }
         }
       });
 
       resizeObserver.observe(parent);
-
       return () => {
         resizeObserver.disconnect();
         canvas.dispose();
       };
     }, [initCanvas]);
 
-    //  Update Visual Guide & Masks when Side or Dimensions change
+    // 2. Load side-specific designs
     useEffect(() => {
       if (!fabricRef.current) return;
       const canvas = fabricRef.current;
 
-      // Remove old guide if it exists
+      const designs = canvas
+        .getObjects()
+        .filter((obj) => obj.selectable && obj.name !== "printGuide");
+      designs.forEach((obj) => canvas.remove(obj));
+
+      if (sideData) {
+        canvas.loadFromJSON(sideData, () => {
+          updateAllMasks(dimensions);
+          canvas.renderAll();
+
+          const userObjects = canvas
+            .getObjects()
+            .filter((obj) => obj.selectable && obj.name !== "printGuide");
+          setLayers([...userObjects].reverse());
+        });
+      } else {
+        canvas.renderAll();
+        setLayers([]); // Reset if no data
+      }
+    }, [activeSide, sideData, setLayers]);
+
+    // 3. Update Visual Guide
+    useEffect(() => {
+      if (!fabricRef.current) return;
+      const canvas = fabricRef.current;
       const existingGuide = canvas
         .getObjects()
         .find((obj) => obj.name === "printGuide");
       if (existingGuide) canvas.remove(existingGuide);
 
-      // Create new Visual Guide with updated dimensions
       const printArea = new fabric.Rect({
         name: "printGuide",
         left: canvas.width / 2 + (dimensions.leftOffset || 0),
@@ -93,37 +129,30 @@ const CanvasArea = forwardRef(
 
       canvas.add(printArea);
       updateAllMasks(dimensions);
-
       canvas.renderAll();
     }, [activeSide, dimensions, updateAllMasks]);
 
-    // 2. Sync Mockup
+    // 4. Sync Mockup
     useEffect(() => {
       loadMockup(mockup);
     }, [mockup, loadMockup]);
 
-    // 3. Sync Zoom
+    // 5. Sync Zoom
     useEffect(() => {
       if (!fabricRef.current) return;
       const canvas = fabricRef.current;
-      const currentZoom = canvas.getZoom();
       const targetZoom = zoom / 100;
-
-      if (currentZoom !== targetZoom) {
-        const center = canvas.getCenterPoint();
-        canvas.zoomToPoint(new fabric.Point(center.x, center.y), targetZoom);
-      }
+      const center = canvas.getCenterPoint();
+      canvas.zoomToPoint(new fabric.Point(center.x, center.y), targetZoom);
     }, [zoom]);
 
-    // 4. Sync Pan Mode State
+    // 6. Sync Pan Mode
     useEffect(() => {
       if (!fabricRef.current) return;
       const canvas = fabricRef.current;
-      canvas.isPanModeActive = isPanMode; // Bridge to the hook's event listener
+      canvas.isPanModeActive = isPanMode;
       canvas.defaultCursor = isPanMode ? "grab" : "default";
       canvas.selection = !isPanMode;
-
-      // Toggle selectability of designs based on pan mode
       canvas.getObjects().forEach((obj) => {
         if (obj.type !== "rect") obj.selectable = !isPanMode;
       });
@@ -133,23 +162,17 @@ const CanvasArea = forwardRef(
     return (
       <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
         <canvas ref={canvasRef} className="outline-none" />
-
-        {/* Localized Print Area Loader */}
         {isProcessing && (
           <div
             className="absolute z-30 flex flex-col items-center justify-center bg-white/40 backdrop-blur-[2px] rounded-sm transition-all duration-300"
             style={{
               width: `${dimensions.width}px`,
               height: `${dimensions.height}px`,
-              // Position it exactly where the printGuide is
               transform: `translate(${dimensions.leftOffset || 0}px, ${(dimensions.topOffset || 0) - 20}px) scale(${zoom / 100})`,
             }}
           >
-            <div className="relative">
-              <Loader2 className="w-8 h-8 animate-spin text-[#646323]" />
-              <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-[#646323] animate-ping opacity-20"></div>
-            </div>
-            <span className="mt-2 text-[10px] font-bold text-[#646323] uppercase tracking-tighter">
+            <Loader2 className="w-8 h-8 animate-spin text-[#646323]" />
+            <span className="mt-2 text-[10px] font-bold text-[#646323] uppercase">
               Processing
             </span>
           </div>

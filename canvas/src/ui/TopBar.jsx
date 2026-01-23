@@ -1,6 +1,11 @@
 import { Info, PencilRuler, Redo2, Undo2 } from "lucide-react";
 
-export default function TopBar({ activeMode, setActiveMode }) {
+export default function TopBar({
+  activeMode,
+  setActiveMode,
+  setIsEditOpen,
+  isEditOpen,
+}) {
   return (
     <div className="  bg-[#f5f5f0] flex items-center justify-between py-2 px-4">
       {/* Left */}
@@ -50,8 +55,9 @@ export default function TopBar({ activeMode, setActiveMode }) {
 
         {/* Right */}
         <button
-          onClick={() => setIsEditOpen(true)}
-          className="text-lg bg-white/90 p-2 border border-gray-200 cursor-pointer"
+          title="Edit tools"
+          onClick={() => setIsEditOpen((prev) => !prev)}
+          className={`text-lg  p-2 border border-gray-200 cursor-pointer rounded ${isEditOpen ? "bg-[#e0e0d7]" : "bg-white/90"}`}
         >
           <PencilRuler size={20} />
         </button>

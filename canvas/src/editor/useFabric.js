@@ -59,11 +59,27 @@ export const useFabric = (dimensions, setZoom) => {
 
       setZoom(Math.round(zoom * 100));
     });
+
+    // Inside useFabric.js -> initCanvas function
+    let updateTimeout;
+    const triggerCanvasUpdate = () => {
+      clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(() => {
+        window.dispatchEvent(new Event("canvas-update"));
+      }, 50); // 50ms debounce
+    };
+
+    canvas.on("object:added", triggerCanvasUpdate);
+    canvas.on("object:removed", triggerCanvasUpdate);
+    canvas.on("object:modified", (e) => {
+      if (e.action === "drag" || e.action === "scale") {
+        triggerCanvasUpdate();
+      }
+    });
     fabricRef.current = canvas;
     return canvas;
   }, []);
 
-  // Inside useFabric.js
   const loadMockup = useCallback((url) => {
     if (!fabricRef.current || !url) return;
     const canvas = fabricRef.current;
@@ -79,6 +95,7 @@ export const useFabric = (dimensions, setZoom) => {
       oldImgs.forEach((o) => canvas.remove(o));
 
       const fabricImg = new fabric.Image(imgElement, {
+        name: "mockup",
         originX: "center",
         originY: "center",
         left: canvas.width / 2,
@@ -126,7 +143,7 @@ export const useFabric = (dimensions, setZoom) => {
     },
     [createMask],
   );
-  // 3. Add Text
+  // addText
   const addText = useCallback(
     (content = "New Text", fontFamily = "sans-serif") => {
       if (!fabricRef.current) return;
@@ -137,7 +154,7 @@ export const useFabric = (dimensions, setZoom) => {
         top: canvas.height / 2,
         fontSize: 28,
         fontFamily: fontFamily,
-        clipPath: createMask({ canvas, currentDimensions: dimensions }),
+        clipPath: createMask({ canvas: canvas, currentDimensions: dimensions }),
         fill: "#2f2e0c",
         originX: "center",
         originY: "center",

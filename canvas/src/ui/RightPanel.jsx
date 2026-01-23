@@ -1,29 +1,89 @@
-function RightPanel() {
+import LayersPanel from "./LayerPanel";
+import { X } from "lucide-react";
+
+export default function RightPanel({
+  isOpen,
+  onClose,
+  layers,
+  refreshLayers,
+  setLayers,
+  canvasRef,
+}) {
+  if (!isOpen) return null;
+
+  const handleSelect = (obj) => {
+    const canvas = canvasRef.current.getCanvas();
+    canvas.setActiveObject(obj);
+    canvas.renderAll();
+  };
+
+  const handleDelete = (obj) => {
+    const canvas = canvasRef.current.getCanvas();
+    canvas.remove(obj);
+    canvas.renderAll();
+    const userObjects = canvas
+      .getObjects()
+      .filter((o) => o.selectable && o.name !== "printGuide");
+    setLayers([...userObjects].reverse());
+  };
+
+  const handleToggleVisibility = (obj) => {
+    obj.set("visible", !obj.visible);
+    canvasRef.current.getCanvas().renderAll();
+    setLayers((prev) => [...prev]);
+  };
+  const updateObject = (obj, properties) => {
+    const canvas = canvasRef.current.getCanvas();
+    if (!canvas || !obj) return;
+
+    obj.set(properties);
+
+    obj.setCoords();
+
+    canvas.requestRenderAll();
+    refreshLayers();
+  };
+
   return (
-    <div className="w-80 border-l bg-[#f8f8f6] p-4">
-      <h3 className="font-semibold mb-4">Variants and layers</h3>
-
-      {/* Variants */}
-      <div className="mb-6">
-        <p className="text-sm font-medium mb-2">Variants</p>
-        <div className="flex items-center justify-between">
-          <span className="text-sm">Colors</span>
-          <button className="text-sm border px-3 py-1 rounded">
-            Select variants
-          </button>
-        </div>
-
-        <div className="mt-3 flex gap-2">
-          <span className="w-6 h-6 rounded-full bg-white border"></span>
-        </div>
+    <div className="absolute right-0 top-18 bottom-15 w-100 border border-gray-200 bg-white flex flex-col  animate-in slide-in-from-right">
+      <div className="p-4 flex items-center justify-between">
+        <h3 className="font-bold text-[#2f2e0c] text-lg">
+          Variants and layers
+        </h3>
+        <button
+          onClick={onClose}
+          className="p-1 hover:bg-gray-100 rounded-full"
+        >
+          <X size={18} />
+        </button>
       </div>
 
-      {/* Layers */}
-      <div>
-        <p className="text-sm font-medium mb-2">Layers</p>
-        <div className="text-sm text-gray-400">No layers yet</div>
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+        {/* Variants Section */}
+        <div className="mb-8">
+          <p className="text-lg font-semibold text-[#2f2e0c] mb-3">Variants</p>
+          <div className="flex items-center justify-between  rounded-lg">
+            <span className="text-md font-medium text-[#2f2e0c] px-1">
+              Colors
+            </span>
+            <button className="text-md font-bold  text-[#2f2e0c] bg-white border border-gray-200 px-3 py-1 rounded-md hover:bg-gray-50">
+              Select variants
+            </button>
+          </div>
+        </div>
+
+        {/* Layers Section */}
+        <div className="">
+          <p className="text-lg font-semibold text-[#2f2e0c] mb-3">Layers</p>
+          <LayersPanel
+            objects={layers}
+            updateObject={updateObject}
+            onSelect={handleSelect}
+            onDelete={handleDelete}
+            onToggleVisibility={handleToggleVisibility}
+          />
+        </div>
       </div>
     </div>
   );
 }
-export default RightPanel;
