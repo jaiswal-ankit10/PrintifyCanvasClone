@@ -27,6 +27,9 @@ export default function EditProduct() {
   const [mockupState, setMockupState] = useState({});
   const [activeTool, setActiveTool] = useState(null);
   const [layers, setLayers] = useState([]);
+  const [selectedObject, setSelectedObject] = useState(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const [canvasData, setCanvasData] = useState({
     front: null,
@@ -82,6 +85,24 @@ export default function EditProduct() {
 
     setActiveSide(newSide);
   };
+
+  // Sync canvas state with local state
+  useEffect(() => {
+    if (canvasAreaRef.current) {
+      setSelectedObject(canvasAreaRef.current.selectedObject);
+      setCanUndo(canvasAreaRef.current.canUndo);
+      setCanRedo(canvasAreaRef.current.canRedo);
+    }
+  }, [activeSide, canvasData]);
+
+  const handleSelectionChange = useCallback((object) => {
+    setSelectedObject(object);
+  }, []);
+
+  const handleUndoRedoChange = useCallback(({ canUndo, canRedo }) => {
+    setCanUndo(canUndo);
+    setCanRedo(canRedo);
+  }, []);
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#f8f8f6] ">
       <div className="flex flex-1 overflow-hidden">
@@ -99,6 +120,13 @@ export default function EditProduct() {
             setActiveMode={setActiveMode}
             setIsEditOpen={setIsEditOpen}
             isEditOpen={isEditOpen}
+            onUndo={() => canvasAreaRef.current?.undo?.()}
+            onRedo={() => canvasAreaRef.current?.redo?.()}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            selectedObject={selectedObject}
+            onDelete={() => canvasAreaRef.current?.deleteSelected?.()}
+            onCopy={() => canvasAreaRef.current?.copySelected?.()}
           />
           <SidePanel
             title={activeTool}
@@ -143,6 +171,8 @@ export default function EditProduct() {
                 isProcessing={isProcessing}
                 sideData={canvasData[activeSide]}
                 setLayers={setLayers}
+                onSelectionChange={handleSelectionChange}
+                onUndoRedoChange={handleUndoRedoChange}
               />
             </div>
 

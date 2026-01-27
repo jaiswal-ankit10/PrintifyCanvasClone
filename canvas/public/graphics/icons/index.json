@@ -16,6 +16,22 @@
       },
 
       "license": "commercial"
+    },
+    {
+      "id": "star",
+      "name": "Star",
+      "file": "/graphics/icons/star.svg",
+      "preview": "/graphics/previews/star.png",
+
+      "format": "SVG",
+      "isVector": true,
+
+      "editable": {
+        "fill": true,
+        "stroke": true
+      },
+
+      "license": "commercial"
     }
   ]
 }

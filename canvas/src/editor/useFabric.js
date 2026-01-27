@@ -1,70 +1,181 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import * as fabric from "fabric";
 import { useLibrary } from "../context/LibraryContext";
 
 export const useFabric = (dimensions, setZoom) => {
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [selectedObject, setSelectedObject] = useState(null);
   const fabricRef = useRef(null);
   const lastPos = useRef({ x: 0, y: 0 });
+  const history = useRef([]);
+  const historyIndex = useRef(-1);
+  const isSideEffect = useRef(false);
 
   const { addToLibrary } = useLibrary();
 
-  // 1. Initialize Canvas
-  const initCanvas = useCallback((canvasElement) => {
-    if (!canvasElement) return;
-
-    // Get dimensions from the parent container
-    const parent = canvasElement.parentElement;
-    const width = parent.clientWidth || 1024;
-    const height = parent.clientHeight || 600;
-    const canvas = new fabric.Canvas(canvasElement, {
-      width: width,
-      height: height,
-      backgroundColor: "#f5f5f0",
-      preserveObjectStacking: true,
-    });
-
-    // Panning Event Listeners
-    canvas.on("mouse:down", (opt) => {
-      if (!canvas.isPanModeActive) return;
-
-      canvas.isDragging = true;
-      canvas.selection = false;
-      lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
-    });
-
-    canvas.on("mouse:move", (opt) => {
-      if (canvas.isDragging) {
-        const vpt = canvas.viewportTransform;
-        vpt[4] += opt.e.clientX - lastPos.current.x;
-        vpt[5] += opt.e.clientY - lastPos.current.y;
-        canvas.requestRenderAll();
-        lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
-      }
-    });
-
-    canvas.on("mouse:up", () => {
-      canvas.isDragging = false;
-    });
-
-    canvas.on("mouse:wheel", (opt) => {
-      const delta = opt.e.deltaY;
-      let zoom = canvas.getZoom();
-      zoom *= 0.999 ** delta;
-
-      if (zoom > 20) zoom = 20;
-      if (zoom < 0.05) zoom = 0.05;
-
-      canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
-
-      opt.e.preventDefault();
-      opt.e.stopPropagation();
-
-      setZoom(Math.round(zoom * 100));
-    });
-
-    fabricRef.current = canvas;
-    return canvas;
+  const updateUndoRedoStatus = useCallback(() => {
+    setCanUndo(historyIndex.current > 0);
+    setCanRedo(historyIndex.current < history.current.length - 1);
   }, []);
+  const saveState = useCallback(() => {
+    if (!fabricRef.current || isSideEffect.current) return;
+
+    const canvas = fabricRef.current;
+    const json = canvas.toJSON([
+      "name",
+      "selectable",
+      "evented",
+      "clipPath",
+      "userEditable",
+      "lockMovementX",
+      "lockMovementY",
+      "lockRotation",
+      "lockScalingX",
+      "lockScalingY",
+      "fontFamily",
+      "fontSize",
+    ]);
+
+    if (historyIndex.current < history.current.length - 1) {
+      history.current = history.current.slice(0, historyIndex.current + 1);
+    }
+
+    history.current.push(json);
+    historyIndex.current++;
+
+    if (history.current.length > 20) {
+      history.current.shift();
+      historyIndex.current--;
+    }
+
+    updateUndoRedoStatus();
+  }, [updateUndoRedoStatus]);
+  const undo = useCallback(async () => {
+    if (historyIndex.current <= 1 || !fabricRef.current) return;
+
+    isSideEffect.current = true;
+    historyIndex.current--;
+    const previousState = history.current[historyIndex.current];
+
+    await fabricRef.current.loadFromJSON(previousState);
+    fabricRef.current.renderAll();
+
+    updateUndoRedoStatus();
+    isSideEffect.current = false;
+  }, [updateUndoRedoStatus]);
+
+  const redo = useCallback(async () => {
+    if (
+      historyIndex.current >= history.current.length - 1 ||
+      !fabricRef.current
+    )
+      return;
+
+    isSideEffect.current = true;
+    historyIndex.current++;
+    const nextState = history.current[historyIndex.current];
+
+    await fabricRef.current.loadFromJSON(nextState);
+    fabricRef.current.renderAll();
+
+    updateUndoRedoStatus();
+    isSideEffect.current = false;
+  }, [updateUndoRedoStatus]);
+
+  // 1. Initialize Canvas
+  const initCanvas = useCallback(
+    (canvasElement) => {
+      if (!canvasElement) return;
+
+      // Get dimensions from the parent container
+      const parent = canvasElement.parentElement;
+      const width = parent.clientWidth || 1024;
+      const height = parent.clientHeight || 600;
+      const canvas = new fabric.Canvas(canvasElement, {
+        width: width,
+        height: height,
+        backgroundColor: "#f5f5f0",
+        preserveObjectStacking: true,
+      });
+
+      // Panning Event Listeners
+      canvas.on("mouse:down", (opt) => {
+        if (!canvas.isPanModeActive) return;
+
+        canvas.isDragging = true;
+        canvas.selection = false;
+        lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
+      });
+
+      canvas.on("mouse:move", (opt) => {
+        if (canvas.isDragging) {
+          const vpt = canvas.viewportTransform;
+          vpt[4] += opt.e.clientX - lastPos.current.x;
+          vpt[5] += opt.e.clientY - lastPos.current.y;
+          canvas.requestRenderAll();
+          lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
+        }
+      });
+
+      canvas.on("mouse:up", () => {
+        canvas.isDragging = false;
+      });
+
+      canvas.on("mouse:wheel", (opt) => {
+        const delta = opt.e.deltaY;
+        let zoom = canvas.getZoom();
+        zoom *= 0.999 ** delta;
+
+        if (zoom > 20) zoom = 20;
+        if (zoom < 0.05) zoom = 0.05;
+
+        canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
+
+        setZoom(Math.round(zoom * 100));
+      });
+
+      const updateSelection = () => setSelectedObject(canvas.getActiveObject());
+      canvas.on("selection:created", updateSelection);
+      canvas.on("selection:updated", updateSelection);
+      canvas.on("selection:cleared", () => setSelectedObject(null));
+
+      canvas.on("object:modified", () => saveState());
+      fabricRef.current = canvas;
+      saveState();
+      return canvas;
+    },
+    [saveState],
+  );
+
+  const deleteSelected = useCallback(() => {
+    const canvas = fabricRef.current;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length) {
+      activeObjects.forEach((obj) => canvas.remove(obj));
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+      saveState(); // Capture in history
+    }
+  }, [saveState]);
+
+  const copySelected = useCallback(async () => {
+    const canvas = fabricRef.current;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    const cloned = await activeObject.clone();
+    cloned.set({
+      left: activeObject.left + 20,
+      top: activeObject.top + 20,
+    });
+    canvas.add(cloned);
+    canvas.setActiveObject(cloned);
+    saveState(); // Capture in history
+  }, [saveState]);
 
   const loadMockup = useCallback((url) => {
     if (!fabricRef.current || !url) return;
@@ -197,6 +308,7 @@ export const useFabric = (dimensions, setZoom) => {
       });
 
       canvas.add(text);
+      saveState();
       canvas.setActiveObject(text);
 
       const mockupObjects = canvas
@@ -229,7 +341,7 @@ export const useFabric = (dimensions, setZoom) => {
       });
       canvas.requestRenderAll();
     },
-    [dimensions, createMask],
+    [dimensions, createMask, saveState],
   );
 
   const addGraphic = useCallback(
@@ -238,54 +350,91 @@ export const useFabric = (dimensions, setZoom) => {
       if (!canvas) return;
 
       try {
-        // Fabric v7: promise-based SVG loading
+        // 1. Load SVG using Fabric v7 promise-based API
         const { objects, options } = await fabric.loadSVGFromURL(graphic.file);
         if (!objects || objects.length === 0) {
           console.error("Failed to load SVG from:", graphic.file);
           return;
         }
 
+        // 2. Group elements and handle visibility based on category
         const obj = fabric.util.groupSVGElements(objects, options);
 
+        const ensureVisible = (o) => {
+          // Shapes JSON typically sets stroke: false, so they MUST have a fill
+          const hasNoFill =
+            !o.fill || o.fill === "none" || o.fill === "transparent";
+          const hasNoStroke =
+            !o.stroke || o.stroke === "none" || o.stroke === "transparent";
+
+          if (hasNoFill) {
+            o.set("fill", "#2f2e0c"); // Apply default brand color
+          }
+
+          // Icons JSON allows strokes; ensure they are visible if fill is missing
+          if (graphic.category === "icons" && hasNoStroke) {
+            o.set("stroke", "#2f2e0c");
+            o.set("strokeWidth", 1);
+          }
+        };
+
+        // Apply visibility logic to all paths within the SVG
+        if (obj.type === "group" && typeof obj.getObjects === "function") {
+          obj.getObjects().forEach((child) => ensureVisible(child));
+        } else {
+          ensureVisible(obj);
+        }
+
+        // 3. Calculate Layout and Scaling
         const centerX = canvas.width / 2 + (dimensions.leftOffset || 0);
         const centerY = canvas.height / 2 + (dimensions.topOffset || 0);
 
-        // Fit the graphic into the print area (leave padding)
-        const maxW = Math.max(1, dimensions.width * 0.7);
-        const maxH = Math.max(1, dimensions.height * 0.7);
-        obj.scaleToWidth(maxW);
-        if (obj.getScaledHeight() > maxH) obj.scaleToHeight(maxH);
+        // Necessary for accurate bounding box calculation in Fabric
+        obj.setCoords();
+        const bounds = obj.getBoundingRect(true, true);
+        const bw = bounds.width || obj.width || 1;
+        const bh = bounds.height || obj.height || 1;
 
-        const clipMask = createMask({
-          canvas,
-          currentDimensions: dimensions,
-        });
+        const targetSizePercentage = graphic.category === "shapes" ? 0.8 : 0.6;
+        const printAreaDimension = Math.min(
+          dimensions.width,
+          dimensions.height,
+        );
+        const desiredSize = printAreaDimension * targetSizePercentage;
 
+        const scale = desiredSize / Math.max(bw, bh);
+
+        // 4. Set Properties and ClipPath.
         obj.set({
           left: centerX,
           top: centerY,
           originX: "center",
           originY: "center",
+          scaleX: scale,
+          scaleY: scale,
           selectable: true,
           evented: true,
-          visible: true,
           name: "user-graphic",
-          userEditable: true,
-          clipPath: clipMask,
+          clipPath: createMask({ canvas, currentDimensions: dimensions }),
           cornerColor: "#646323",
           cornerSize: 8,
           transparentCorners: false,
         });
 
-        obj.getObjects()?.forEach((child) => {
-          child.selectable = false;
-          child.evented = false;
-        });
+        // Prevent individual selection of SVG sub-paths
+        if (obj.getObjects) {
+          obj.getObjects().forEach((child) => {
+            child.selectable = false;
+            child.evented = false;
+          });
+        }
 
+        // 5. Add to Canvas and Maintain Layering
         canvas.add(obj);
+        saveState();
         canvas.setActiveObject(obj);
 
-        // keep mockup behind
+        // Keep mockup at the very bottom
         canvas
           .getObjects()
           .filter((o) => o.name === "mockupBackground")
@@ -293,10 +442,16 @@ export const useFabric = (dimensions, setZoom) => {
 
         canvas.requestRenderAll();
       } catch (error) {
-        console.error("Error loading SVG:", error);
+        console.error(
+          "Error loading graphic:",
+          graphic.name,
+          "from",
+          graphic.file,
+          error,
+        );
       }
     },
-    [dimensions, createMask],
+    [dimensions, createMask, saveState],
   );
 
   const uploadImage = useCallback(() => {
@@ -327,8 +482,8 @@ export const useFabric = (dimensions, setZoom) => {
           });
 
           // Scale image if it's too large
-          if (img.width > 400) img.scaleToWidth(250);
-          else if (img.height > 400) img.scaleToHeight(250);
+          if (img.width > 400) img.scaleToWidth(100);
+          else if (img.height > 400) img.scaleToHeight(200);
 
           // Position image in the center of the print area
           const centerX = canvas.width / 2 + (dimensions.leftOffset || 0);
@@ -351,6 +506,7 @@ export const useFabric = (dimensions, setZoom) => {
           });
 
           canvas.add(img);
+          saveState();
           canvas.setActiveObject(img);
 
           // Ensure mockup stays at back
@@ -378,7 +534,30 @@ export const useFabric = (dimensions, setZoom) => {
     };
 
     input.click();
-  }, [dimensions, createMask, addToLibrary]);
+  }, [dimensions, createMask, addToLibrary, saveState]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Check for Ctrl+Z or Cmd+Z (Mac)
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        e.preventDefault();
+      }
+
+      // Check for Ctrl+Y
+      if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        redo();
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [undo, redo]);
 
   return {
     fabricRef,
@@ -389,5 +568,12 @@ export const useFabric = (dimensions, setZoom) => {
     addGraphic,
     updateAllMasks,
     getUserLayers,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    selectedObject,
+    deleteSelected,
+    copySelected,
   };
 };

@@ -20,7 +20,9 @@
         "recommended": true,
         "maxScale": null,
         "minSizeInches": 0.3
-      }
+      },
+
+      "license": "commercial"
     },
     {
       "id": "circle",
@@ -36,7 +38,9 @@
       },
       "print": {
         "recommended": true
-      }
+      },
+
+      "license": "commercial"
     },
     {
       "id": "square",
@@ -52,7 +56,9 @@
       },
       "print": {
         "recommended": true
-      }
+      },
+
+      "license": "commercial"
     },
     {
       "id": "triangle",
@@ -68,7 +74,9 @@
       },
       "print": {
         "recommended": true
-      }
+      },
+
+      "license": "commercial"
     }
   ]
 }

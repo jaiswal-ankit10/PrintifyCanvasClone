@@ -21,6 +21,8 @@ const CanvasArea = forwardRef(
       isProcessing,
       sideData,
       setLayers,
+      onSelectionChange,
+      onUndoRedoChange,
     },
     ref,
   ) => {
@@ -34,6 +36,13 @@ const CanvasArea = forwardRef(
       uploadImage,
       addGraphic,
       updateAllMasks,
+      undo,
+      redo,
+      canRedo,
+      canUndo,
+      selectedObject,
+      deleteSelected,
+      copySelected,
     } = useFabric(dimensions, setZoom);
 
     const setLayersRef = useRef(setLayers);
@@ -168,6 +177,13 @@ const CanvasArea = forwardRef(
       addGraphic,
       addImageFromURL,
       getCanvas: () => fabricRef.current,
+      undo,
+      redo,
+      canRedo,
+      canUndo,
+      selectedObject,
+      deleteSelected,
+      copySelected,
     }));
 
     /* Init canvas */
@@ -281,6 +297,19 @@ const CanvasArea = forwardRef(
       const center = canvas.getCenterPoint();
       canvas.zoomToPoint(new fabric.Point(center.x, center.y), zoom / 100);
     }, [zoom]);
+
+    /* Sync canvas state with parent */
+    useEffect(() => {
+      if (onSelectionChange && selectedObject !== undefined) {
+        onSelectionChange(selectedObject);
+      }
+    }, [selectedObject, onSelectionChange]);
+
+    useEffect(() => {
+      if (onUndoRedoChange) {
+        onUndoRedoChange({ canUndo, canRedo });
+      }
+    }, [canUndo, canRedo, onUndoRedoChange]);
 
     /* Pan mode */
     useEffect(() => {
