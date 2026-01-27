@@ -1,0 +1,21 @@
+{
+  "category": "icons",
+  "graphics": [
+    {
+      "id": "crown",
+      "name": "Crown",
+      "file": "/graphics/icons/crown.svg",
+      "preview": "/graphics/previews/crown.png",
+
+      "format": "SVG",
+      "isVector": true,
+
+      "editable": {
+        "fill": true,
+        "stroke": true
+      },
+
+      "license": "commercial"
+    }
+  ]
+}

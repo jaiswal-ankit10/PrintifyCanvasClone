@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  BookImage,
   FolderOpen,
   LayoutTemplate,
   Shapes,
@@ -17,7 +16,13 @@ function ShutterstockIcon({ className = "" }) {
   );
 }
 
-function LeftToolbar({ onAddText, onUpload, activeTool, onToolClick }) {
+function LeftToolbar({
+  onAddText,
+  onUpload,
+  addGraphics,
+  activeTool,
+  onToolClick,
+}) {
   const tools = [
     {
       label: "",
@@ -28,7 +33,7 @@ function LeftToolbar({ onAddText, onUpload, activeTool, onToolClick }) {
     { label: "AI", icon: <Sparkles size={20} /> },
     { label: "Add text", icon: <Type size={20} />, action: onAddText },
     { label: "My library", icon: <FolderOpen size={20} /> },
-    { label: "Graphics", icon: <Shapes size={20} /> },
+    { label: "Graphics", icon: <Shapes size={20} />, action: addGraphics },
     { label: "Templates", icon: <LayoutTemplate size={20} /> },
     {
       label: "Shutterstock",

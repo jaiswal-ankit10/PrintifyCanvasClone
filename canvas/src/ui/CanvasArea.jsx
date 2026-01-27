@@ -32,6 +32,7 @@ const CanvasArea = forwardRef(
       loadMockup,
       addText,
       uploadImage,
+      addGraphic,
       updateAllMasks,
     } = useFabric(dimensions, setZoom);
 
@@ -142,14 +143,14 @@ const CanvasArea = forwardRef(
 
             canvas.add(img);
             canvas.setActiveObject(img);
-            
+
             // Ensure mockup stays at back
             enforceSystemObjects();
-            
+
             canvas.requestRenderAll();
             syncLayers();
           },
-          { crossOrigin: "anonymous" }
+          { crossOrigin: "anonymous" },
         );
       },
       [syncLayers, dimensions, enforceSystemObjects],
@@ -158,6 +159,7 @@ const CanvasArea = forwardRef(
     useImperativeHandle(ref, () => ({
       addText,
       uploadImage,
+      addGraphic,
       addImageFromURL,
       getCanvas: () => fabricRef.current,
     }));

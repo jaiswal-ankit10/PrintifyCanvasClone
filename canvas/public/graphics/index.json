@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "basePath": "/graphics",
+  "categories": [
+    {
+      "id": "shapes",
+      "name": "Shapes",
+      "type": "SHAPE",
+      "editable": true,
+      "colorable": true
+    },
+    {
+      "id": "icons",
+      "name": "Icons",
+      "type": "ICON",
+      "editable": true,
+      "colorable": true
+    },
+    {
+      "id": "illustrations",
+      "name": "Illustrations",
+      "type": "ILLUSTRATION",
+      "editable": false,
+      "colorable": false
+    }
+  ]
+}

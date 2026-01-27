@@ -1,0 +1,24 @@
+{
+  "category": "illustrations",
+  "graphics": [
+    {
+      "id": "dragon",
+      "name": "Dragon Art",
+      "file": "/graphics/illustrations/dragon.svg",
+      "preview": "/graphics/previews/dragon.png",
+
+      "format": "SVG",
+      "isVector": true,
+
+      "editable": {
+        "fill": false,
+        "stroke": false
+      },
+
+      "print": {
+        "recommended": true,
+        "note": "Do not recolor"
+      }
+    }
+  ]
+}

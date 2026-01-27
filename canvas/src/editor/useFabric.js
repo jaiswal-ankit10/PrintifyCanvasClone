@@ -231,6 +231,56 @@ export const useFabric = (dimensions, setZoom) => {
     [dimensions, createMask],
   );
 
+  const addGraphic = useCallback(
+    (graphic) => {
+      const canvas = fabricRef.current;
+      if (!canvas) return;
+
+      fabric.loadSVGFromURL(graphic.file, (objects, options) => {
+        const obj = fabric.util.groupSVGElements(objects, options);
+
+        const centerX = canvas.width / 2 + (dimensions.leftOffset || 0);
+        const centerY = canvas.height / 2 + (dimensions.topOffset || 0);
+
+        const clipMask = createMask({
+          canvas,
+          currentDimensions: dimensions,
+        });
+
+        obj.set({
+          left: centerX,
+          top: centerY,
+          originX: "center",
+          originY: "center",
+          selectable: true,
+          evented: true,
+          visible: true,
+          name: "user-graphic",
+          clipPath: clipMask,
+          cornerColor: "#646323",
+          cornerSize: 8,
+          transparentCorners: false,
+        });
+
+        obj.getObjects()?.forEach((child) => {
+          child.selectable = false;
+          child.evented = false;
+        });
+
+        canvas.add(obj);
+        canvas.setActiveObject(obj);
+
+        const mockups = canvas
+          .getObjects()
+          .filter((o) => o.name === "mockupBackground");
+        mockups.forEach((m) => canvas.sendObjectToBack(m));
+
+        canvas.requestRenderAll();
+      });
+    },
+    [dimensions, createMask],
+  );
+
   const uploadImage = useCallback(() => {
     if (!fabricRef.current) return;
     const canvas = fabricRef.current;
@@ -318,6 +368,7 @@ export const useFabric = (dimensions, setZoom) => {
     loadMockup,
     addText,
     uploadImage,
+    addGraphic,
     updateAllMasks,
     getUserLayers,
   };

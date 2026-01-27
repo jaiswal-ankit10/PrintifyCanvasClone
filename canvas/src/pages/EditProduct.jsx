@@ -12,6 +12,7 @@ import AIGenerator from "../components/AIGenerator";
 import GraphicsLibrary from "../components/GraphicsLibrary";
 import TextOptions from "../components/TextOptions";
 import MyLibrary from "../components/MyLibrary";
+import Templates from "../components/Templates";
 
 export default function EditProduct() {
   const { productId } = useParams();
@@ -112,7 +113,13 @@ export default function EditProduct() {
               />
             )}
             {activeTool === "AI" && <AIGenerator />}
-            {activeTool === "Graphics" && <GraphicsLibrary />}
+            {activeTool === "Graphics" && (
+              <GraphicsLibrary
+                onAddGraphic={(graphic) =>
+                  canvasAreaRef.current?.addGraphic(graphic)
+                }
+              />
+            )}
             {activeTool === "My library" && (
               <MyLibrary
                 onAddImage={(src) =>
@@ -120,6 +127,7 @@ export default function EditProduct() {
                 }
               />
             )}
+            {activeTool === "Templates" && <Templates />}
           </SidePanel>
 
           <div className="relative flex-1 bg-[#f5f5f0] overflow-hidden">

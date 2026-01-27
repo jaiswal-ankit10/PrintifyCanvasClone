@@ -1,0 +1,74 @@
+{
+  "category": "shapes",
+  "printSafe": true,
+  "graphics": [
+    {
+      "id": "star",
+      "name": "Star",
+      "file": "/graphics/shapes/star.svg",
+      "preview": "/graphics/previews/star.png",
+
+      "format": "SVG",
+      "isVector": true,
+
+      "editable": {
+        "fill": true,
+        "stroke": false
+      },
+
+      "print": {
+        "recommended": true,
+        "maxScale": null,
+        "minSizeInches": 0.3
+      }
+    },
+    {
+      "id": "circle",
+      "name": "Circle",
+      "file": "/graphics/shapes/circle.svg",
+      "preview": "/graphics/previews/circle.png",
+
+      "format": "SVG",
+      "isVector": true,
+      "editable": {
+        "fill": true,
+        "stroke": false
+      },
+      "print": {
+        "recommended": true
+      }
+    },
+    {
+      "id": "square",
+      "name": "Square",
+      "file": "/graphics/shapes/square.svg",
+      "preview": "/graphics/previews/square.png",
+
+      "format": "SVG",
+      "isVector": true,
+      "editable": {
+        "fill": true,
+        "stroke": false
+      },
+      "print": {
+        "recommended": true
+      }
+    },
+    {
+      "id": "triangle",
+      "name": "Triangle",
+      "file": "/graphics/shapes/triangle.svg",
+      "preview": "/graphics/previews/triangle.png",
+
+      "format": "SVG",
+      "isVector": true,
+      "editable": {
+        "fill": true,
+        "stroke": false
+      },
+      "print": {
+        "recommended": true
+      }
+    }
+  ]
+}
