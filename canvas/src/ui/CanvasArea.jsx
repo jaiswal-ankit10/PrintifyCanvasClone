@@ -6,8 +6,8 @@ import {
   useCallback,
 } from "react";
 import * as fabric from "fabric";
-import { useFabric } from "../editor/useFabric";
 import { Loader2 } from "lucide-react";
+import { useFabric } from "../editor/useFabric";
 
 const CanvasArea = forwardRef(
   (
@@ -25,56 +25,42 @@ const CanvasArea = forwardRef(
     ref,
   ) => {
     const canvasRef = useRef(null);
+
     const {
       fabricRef,
       initCanvas,
       loadMockup,
       addText,
       uploadImage,
-      getUserLayers,
       updateAllMasks,
     } = useFabric(dimensions, setZoom);
 
-    // Store latest values in refs to avoid dependency issues
-    const getUserLayersRef = useRef(getUserLayers);
     const setLayersRef = useRef(setLayers);
 
     useEffect(() => {
-      getUserLayersRef.current = getUserLayers;
       setLayersRef.current = setLayers;
-    }, [getUserLayers, setLayers]);
+    }, [setLayers]);
 
-    useImperativeHandle(ref, () => ({
-      addText,
-      uploadImage,
-      getCanvas: () => fabricRef.current,
-    }));
-
-    // --- NEW: Wrapped syncLayers with Loop Protection ---
-    const syncLayers = useCallback(() => {
+    /* Lock mockup & print guide permanently */
+    const enforceSystemObjects = useCallback(() => {
       const canvas = fabricRef.current;
       if (!canvas) return;
 
-      // CRITICAL: Ensure mockup and print guide stay non-selectable, non-evented, and visible
-      // Do this BEFORE getting layers to ensure mockup is excluded
-      const mockupObjects = canvas
-        .getObjects()
-        .filter((obj) => obj.name === "mockupBackground");
-      mockupObjects.forEach((obj) => {
-        obj.set({
-          selectable: false,
-          evented: false,
-          visible: true,
-          lockMovementX: true,
-          lockMovementY: true,
-          lockRotation: true,
-          lockScalingX: true,
-          lockScalingY: true,
-        });
-        canvas.sendObjectToBack(obj);
-      });
-
       canvas.getObjects().forEach((obj) => {
+        if (obj.name === "mockupBackground") {
+          obj.set({
+            selectable: false,
+            evented: false,
+            visible: true,
+            lockMovementX: true,
+            lockMovementY: true,
+            lockRotation: true,
+            lockScalingX: true,
+            lockScalingY: true,
+          });
+          canvas.sendObjectToBack(obj);
+        }
+
         if (obj.name === "printGuide") {
           obj.set({
             selectable: false,
@@ -85,295 +71,177 @@ const CanvasArea = forwardRef(
           });
         }
       });
+    }, []);
 
-      // Get layers - this should exclude mockup since it's now non-selectable
-      const newLayers = getUserLayersRef.current();
+    /* Sync user layers */
+    const syncLayers = useCallback(() => {
+      const canvas = fabricRef.current;
+      if (!canvas) return;
 
-      // Double-check: filter out any mockup objects that might have slipped through
-      const filteredLayers = newLayers.filter(
-        (obj) => obj.name !== "mockupBackground" && obj.name !== "printGuide",
-      );
+      const layers = canvas
+        .getObjects()
+        .filter(
+          (obj) =>
+            obj.selectable &&
+            obj.name !== "mockupBackground" &&
+            obj.name !== "printGuide",
+        )
+        .slice()
+        .reverse();
 
       setLayersRef.current((prev) => {
-        // 1. Length check (fastest)
-        if (prev.length !== filteredLayers.length) return filteredLayers;
-
-        // 2. Deep reference check to see if order or objects changed
-        const isDifferent = filteredLayers.some(
-          (obj, index) => obj !== prev[index],
-        );
-
-        // Only update state if something actually changed
-        if (isDifferent) return filteredLayers;
-        return prev;
+        if (prev.length !== layers.length) return layers;
+        const changed = layers.some((obj, i) => obj !== prev[i]);
+        return changed ? layers : prev;
       });
-    }, []); // Using refs so no dependencies needed
+    }, []);
 
-    // 1. Initialize Canvas
+    /* Public canvas API */
+    const addImageFromURL = useCallback(
+      (url) => {
+        const canvas = fabricRef.current;
+        if (!canvas) return;
+
+        fabric.Image.fromURL(
+          url,
+          (img) => {
+            // Scale image if it's too large
+            if (img.width > 400) {
+              img.scaleToWidth(250);
+            } else if (img.height > 400) {
+              img.scaleToHeight(250);
+            }
+
+            // Position image in the center of the print area
+            const centerX = canvas.width / 2 + (dimensions.leftOffset || 0);
+            const centerY = canvas.height / 2 + (dimensions.topOffset || 0);
+
+            // Create clip mask for print area
+            const clipMask = new fabric.Rect({
+              left: centerX,
+              top: centerY,
+              width: dimensions.width,
+              height: dimensions.height,
+              originX: "center",
+              originY: "center",
+              absolutePositioned: true,
+              inverted: false,
+            });
+
+            img.set({
+              left: centerX,
+              top: centerY,
+              originX: "center",
+              originY: "center",
+              selectable: true,
+              evented: true,
+              visible: true,
+              name: "user-image",
+              clipPath: clipMask,
+            });
+
+            canvas.add(img);
+            canvas.setActiveObject(img);
+            
+            // Ensure mockup stays at back
+            enforceSystemObjects();
+            
+            canvas.requestRenderAll();
+            syncLayers();
+          },
+          { crossOrigin: "anonymous" }
+        );
+      },
+      [syncLayers, dimensions, enforceSystemObjects],
+    );
+
+    useImperativeHandle(ref, () => ({
+      addText,
+      uploadImage,
+      addImageFromURL,
+      getCanvas: () => fabricRef.current,
+    }));
+
+    /* Init canvas */
     useEffect(() => {
       const canvas = initCanvas(canvasRef.current);
       const parent = canvasRef.current.parentElement;
 
       const resizeObserver = new ResizeObserver((entries) => {
-        for (let entry of entries) {
+        for (const entry of entries) {
           const { width, height } = entry.contentRect;
-          if (fabricRef.current) {
-            fabricRef.current.setDimensions({ width, height });
-            const center = fabricRef.current.getCenterPoint();
-            fabricRef.current.getObjects().forEach((obj) => {
-              if (!obj.selectable || obj.name === "printGuide") {
-                obj.set({
-                  left: center.x + (dimensions.leftOffset || 0),
-                  top: center.y + (dimensions.topOffset || 0),
-                });
-                obj.setCoords();
-              }
-            });
-            fabricRef.current.requestRenderAll();
-          }
+          canvas.setDimensions({ width, height });
+          updateAllMasks(dimensions);
+          enforceSystemObjects();
+          canvas.requestRenderAll();
         }
       });
 
       resizeObserver.observe(parent);
+
       return () => {
         resizeObserver.disconnect();
         canvas.dispose();
       };
-    }, [initCanvas, dimensions]);
+    }, [initCanvas, dimensions, enforceSystemObjects, updateAllMasks]);
 
-    // 2. Load side-specific designs & Listen for changes
+    /* Load side JSON & listen for changes */
     useEffect(() => {
       if (!fabricRef.current) return;
       const canvas = fabricRef.current;
+      let isLoading = false;
 
-      // Event Listeners for user interactions
-      const handleObjectAdded = (e) => {
-        // Ensure mockup and print guide properties are maintained
-        const obj = e.target;
-        if (
-          obj &&
-          obj.name !== "mockupBackground" &&
-          obj.name !== "printGuide"
-        ) {
-          // Ensure mockup and print guide stay in correct state
-          canvas.getObjects().forEach((o) => {
-            if (o.name === "mockupBackground") {
-              o.set({ selectable: false, evented: false, visible: true });
-              canvas.sendObjectToBack(o);
-            } else if (o.name === "printGuide") {
-              o.set({ selectable: false, evented: false, visible: true });
-            }
-          });
-          syncLayers();
-        } else {
-          // If mockup or print guide was added/modified, ensure their properties
-          if (obj && obj.name === "mockupBackground") {
-            obj.set({ selectable: false, evented: false, visible: true });
-            canvas.sendObjectToBack(obj);
-          } else if (obj && obj.name === "printGuide") {
-            obj.set({ selectable: false, evented: false, visible: true });
-          }
-          canvas.renderAll();
-        }
-      };
-
-      const handleObjectRemoved = () => {
+      const onAdded = (e) => {
+        if (isLoading || !e.target?.selectable) return;
+        enforceSystemObjects();
         syncLayers();
       };
 
-      const handleObjectModified = (e) => {
-        // Only sync if it's not mockup or print guide
-        const obj = e.target;
-        if (
-          obj &&
-          obj.name !== "mockupBackground" &&
-          obj.name !== "printGuide"
-        ) {
-          syncLayers();
-        }
+      const onRemoved = () => syncLayers();
+
+      const onModified = (e) => {
+        if (!e.target?.selectable) return;
+        syncLayers();
       };
 
-      // Ensure mockup and print guide stay visible on selection changes
-      const handleSelectionCreated = (e) => {
-        // Prevent mockup from being selected
-        if (
-          e.selected &&
-          e.selected.some(
-            (obj) =>
-              obj.name === "mockupBackground" || obj.name === "printGuide",
-          )
-        ) {
-          canvas.discardActiveObject();
-        }
-
-        canvas.getObjects().forEach((obj) => {
-          if (obj.name === "mockupBackground") {
-            obj.set({
-              selectable: false,
-              evented: false,
-              visible: true,
-              lockMovementX: true,
-              lockMovementY: true,
-            });
-            canvas.sendObjectToBack(obj);
-          } else if (obj.name === "printGuide") {
-            obj.set({
-              selectable: false,
-              evented: false,
-              visible: true,
-              lockMovementX: true,
-              lockMovementY: true,
-            });
-          }
-        });
-        canvas.requestRenderAll();
-      };
-
-      const handleSelectionCleared = () => {
-        canvas.getObjects().forEach((obj) => {
-          if (obj.name === "mockupBackground") {
-            obj.set({
-              selectable: false,
-              evented: false,
-              visible: true,
-              lockMovementX: true,
-              lockMovementY: true,
-            });
-            canvas.sendObjectToBack(obj);
-          } else if (obj.name === "printGuide") {
-            obj.set({
-              selectable: false,
-              evented: false,
-              visible: true,
-              lockMovementX: true,
-              lockMovementY: true,
-            });
-          }
-        });
-        canvas.requestRenderAll();
-      };
-
-      // Prevent mockup from being selected via mouse events
-      const handleMouseDown = (opt) => {
-        if (
-          opt.target &&
-          (opt.target.name === "mockupBackground" ||
-            opt.target.name === "printGuide")
-        ) {
-          // Don't prevent default to allow panning to work
-          // Just ensure the object can't be selected
-          if (canvas.getActiveObject() === opt.target) {
-            canvas.discardActiveObject();
-          }
-          // Ensure properties are maintained
-          opt.target.set({
-            selectable: false,
-            evented: false,
-            visible: true,
-            lockMovementX: true,
-            lockMovementY: true,
-          });
-          if (opt.target.name === "mockupBackground") {
-            canvas.sendObjectToBack(opt.target);
-          }
-        }
-      };
-
-      canvas.on("object:added", handleObjectAdded);
-      canvas.on("object:removed", handleObjectRemoved);
-      canvas.on("object:modified", handleObjectModified);
-      canvas.on("selection:created", handleSelectionCreated);
-      canvas.on("selection:cleared", handleSelectionCleared);
-      canvas.on("mouse:down", handleMouseDown);
-
-      // Store original renderAll and override to ensure mockup stays visible
-      const originalRenderAll = canvas.renderAll.bind(canvas);
-      const ensureMockupProperties = () => {
-        const mockupObjs = canvas
-          .getObjects()
-          .filter((o) => o.name === "mockupBackground");
-        mockupObjs.forEach((obj) => {
-          obj.set({
-            selectable: false,
-            evented: false,
-            visible: true,
-            lockMovementX: true,
-            lockMovementY: true,
-          });
-          canvas.sendObjectToBack(obj);
-        });
-      };
-
-      canvas.renderAll = function () {
-        ensureMockupProperties();
-        return originalRenderAll();
-      };
+      canvas.on("object:added", onAdded);
+      canvas.on("object:removed", onRemoved);
+      canvas.on("object:modified", onModified);
 
       if (sideData) {
+        isLoading = true;
         canvas.loadFromJSON(sideData, () => {
+          isLoading = false;
           updateAllMasks(dimensions);
-
-          // CRITICAL: Ensure ALL mockup objects are properly configured
-          const mockupObjects = canvas
-            .getObjects()
-            .filter((o) => o.name === "mockupBackground");
-          mockupObjects.forEach((bg) => {
-            bg.set({
-              selectable: false,
-              evented: false,
-              visible: true,
-              excludeFromExport: false,
-              lockMovementX: true,
-              lockMovementY: true,
-              lockRotation: true,
-              lockScalingX: true,
-              lockScalingY: true,
-            });
-            canvas.sendObjectToBack(bg);
-          });
-
-          // Ensure print guide is visible and non-selectable
-          const printGuide = canvas
-            .getObjects()
-            .find((o) => o.name === "printGuide");
-          if (printGuide) {
-            printGuide.set({
-              selectable: false,
-              evented: false,
-              visible: true,
-              lockMovementX: true,
-              lockMovementY: true,
-            });
-          }
-
-          // Force render to ensure visibility
+          enforceSystemObjects();
           canvas.requestRenderAll();
           syncLayers();
         });
       }
 
       return () => {
-        canvas.off("object:added", handleObjectAdded);
-        canvas.off("object:removed", handleObjectRemoved);
-        canvas.off("object:modified", handleObjectModified);
-        canvas.off("selection:created", handleSelectionCreated);
-        canvas.off("selection:cleared", handleSelectionCleared);
-        canvas.off("mouse:down", handleMouseDown);
-        // Restore original renderAll
-        canvas.renderAll = originalRenderAll;
+        canvas.off("object:added", onAdded);
+        canvas.off("object:removed", onRemoved);
+        canvas.off("object:modified", onModified);
       };
-    }, [activeSide, sideData, syncLayers, updateAllMasks, dimensions]);
+    }, [
+      activeSide,
+      sideData,
+      dimensions,
+      enforceSystemObjects,
+      syncLayers,
+      updateAllMasks,
+    ]);
 
-    // 3. Update Visual Guide
+    /* Print guide */
     useEffect(() => {
       if (!fabricRef.current) return;
       const canvas = fabricRef.current;
-      const existingGuide = canvas
-        .getObjects()
-        .find((obj) => obj.name === "printGuide");
-      if (existingGuide) canvas.remove(existingGuide);
 
-      const printArea = new fabric.Rect({
+      const oldGuide = canvas.getObjects().find((o) => o.name === "printGuide");
+      if (oldGuide) canvas.remove(oldGuide);
+
+      const guide = new fabric.Rect({
         name: "printGuide",
         left: canvas.width / 2 + (dimensions.leftOffset || 0),
         top: canvas.height / 2 + (dimensions.topOffset || 0),
@@ -386,62 +254,59 @@ const CanvasArea = forwardRef(
         strokeDashArray: [5, 5],
         selectable: false,
         evented: false,
-        visible: true,
-        strokeWidth: 1,
       });
 
-      canvas.add(printArea);
-
-      // Ensure mockup stays at the back
-      const bg = canvas.getObjects().find((o) => o.name === "mockupBackground");
-      if (bg) {
-        bg.set({ selectable: false, evented: false, visible: true });
-        canvas.sendObjectToBack(bg);
-      }
-
-      updateAllMasks(dimensions);
+      canvas.add(guide);
+      enforceSystemObjects();
       canvas.renderAll();
-    }, [activeSide, dimensions, updateAllMasks]);
+    }, [dimensions, enforceSystemObjects]);
 
-    // 4. Sync Mockup
+    /* Mockup */
     useEffect(() => {
       loadMockup(mockup);
     }, [mockup, loadMockup]);
 
-    // 5. Sync Zoom
+    /* Zoom */
     useEffect(() => {
       if (!fabricRef.current) return;
       const canvas = fabricRef.current;
-      const targetZoom = zoom / 100;
       const center = canvas.getCenterPoint();
-      canvas.zoomToPoint(new fabric.Point(center.x, center.y), targetZoom);
+      canvas.zoomToPoint(new fabric.Point(center.x, center.y), zoom / 100);
     }, [zoom]);
 
-    // 6. Sync Pan Mode
+    /* Pan mode */
     useEffect(() => {
       if (!fabricRef.current) return;
       const canvas = fabricRef.current;
+
       canvas.isPanModeActive = isPanMode;
-      canvas.defaultCursor = isPanMode ? "grab" : "default";
       canvas.selection = !isPanMode;
+      canvas.defaultCursor = isPanMode ? "grab" : "default";
+
+      canvas.discardActiveObject();
+
       canvas.getObjects().forEach((obj) => {
         if (obj.name !== "printGuide" && obj.name !== "mockupBackground") {
           obj.selectable = !isPanMode;
         }
       });
+
       canvas.renderAll();
     }, [isPanMode]);
 
     return (
       <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
         <canvas ref={canvasRef} className="outline-none" />
+
         {isProcessing && (
           <div
-            className="absolute z-30 flex flex-col items-center justify-center bg-white/40 backdrop-blur-[2px] rounded-sm transition-all duration-300"
+            className="absolute z-30 flex flex-col items-center justify-center bg-white/40 backdrop-blur-sm"
             style={{
               width: `${dimensions.width}px`,
               height: `${dimensions.height}px`,
-              transform: `translate(${dimensions.leftOffset || 0}px, ${(dimensions.topOffset || 0) - 20}px) scale(${zoom / 100})`,
+              transform: `translate(${dimensions.leftOffset || 0}px, ${
+                (dimensions.topOffset || 0) - 20
+              }px) scale(${zoom / 100})`,
             }}
           >
             <Loader2 className="w-8 h-8 animate-spin text-[#646323]" />

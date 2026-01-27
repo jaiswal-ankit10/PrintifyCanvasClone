@@ -1,9 +1,12 @@
 import { useRef, useCallback } from "react";
 import * as fabric from "fabric";
+import { useLibrary } from "../context/LibraryContext";
 
 export const useFabric = (dimensions, setZoom) => {
   const fabricRef = useRef(null);
   const lastPos = useRef({ x: 0, y: 0 });
+
+  const { addToLibrary } = useLibrary();
 
   // 1. Initialize Canvas
   const initCanvas = useCallback((canvasElement) => {
@@ -22,11 +25,11 @@ export const useFabric = (dimensions, setZoom) => {
 
     // Panning Event Listeners
     canvas.on("mouse:down", (opt) => {
-      if (canvas.isPanModeActive) {
-        canvas.isDragging = true;
-        canvas.selection = false;
-        lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
-      }
+      if (!canvas.isPanModeActive) return;
+
+      canvas.isDragging = true;
+      canvas.selection = false;
+      lastPos.current = { x: opt.e.clientX, y: opt.e.clientY };
     });
 
     canvas.on("mouse:move", (opt) => {
@@ -93,9 +96,8 @@ export const useFabric = (dimensions, setZoom) => {
       fabricImg.scale(scale);
 
       canvas.add(fabricImg);
-      canvas.sendObjectToBack(fabricImg); // Keep it behind design layers
+      canvas.sendObjectToBack(fabricImg);
 
-      // CRITICAL: Set all properties to prevent selection and movement
       fabricImg.set({
         selectable: false,
         evented: false,
@@ -135,6 +137,7 @@ export const useFabric = (dimensions, setZoom) => {
         originX: "center",
         originY: "center",
         absolutePositioned: true,
+        inverted: false,
       }),
     [],
   );
@@ -195,7 +198,6 @@ export const useFabric = (dimensions, setZoom) => {
       canvas.add(text);
       canvas.setActiveObject(text);
 
-      // CRITICAL: Ensure mockup and print guide stay non-selectable and visible
       const mockupObjects = canvas
         .getObjects()
         .filter((obj) => obj.name === "mockupBackground");
@@ -224,8 +226,6 @@ export const useFabric = (dimensions, setZoom) => {
           });
         }
       });
-
-      // Use requestRenderAll to ensure proper rendering
       canvas.requestRenderAll();
     },
     [dimensions, createMask],
@@ -240,28 +240,77 @@ export const useFabric = (dimensions, setZoom) => {
     input.accept = "image/*";
 
     input.onchange = (e) => {
-      const file = e.target.files[0];
+      const file = e.target.files?.[0];
       if (!file) return;
 
       const reader = new FileReader();
       reader.onload = () => {
-        reader.onload = () => {
-          const imageData = {
-            id: crypto.randomUUID(),
-            src: reader.result,
-            name: file.name,
-            createdAt: Date.now(),
-          };
-
-          addToLibrary(imageData);
-          addImageToCanvas(reader.result);
+        const imageData = {
+          id: crypto.randomUUID(),
+          src: reader.result,
+          name: file.name,
+          createdAt: Date.now(),
         };
-        reader.readAsDataURL(file);
+
+        addToLibrary(imageData);
+        fabric.Image.fromURL(
+          reader.result,
+          (img) => {
+            // Scale image if it's too large
+            if (img.width > 400) {
+              img.scaleToWidth(250);
+            } else if (img.height > 400) {
+              img.scaleToHeight(250);
+            }
+
+            // Position image in the center of the print area
+            const centerX = canvas.width / 2 + (dimensions.leftOffset || 0);
+            const centerY = canvas.height / 2 + (dimensions.topOffset || 0);
+
+            img.set({
+              left: centerX,
+              top: centerY,
+              originX: "center",
+              originY: "center",
+              selectable: true,
+              evented: true,
+              visible: true,
+              name: "user-image",
+              clipPath: createMask({
+                canvas,
+                currentDimensions: dimensions,
+              }),
+            });
+
+            canvas.add(img);
+            canvas.setActiveObject(img);
+            
+            // Ensure mockup stays at back
+            const mockupObjects = canvas
+              .getObjects()
+              .filter((obj) => obj.name === "mockupBackground");
+            mockupObjects.forEach((obj) => {
+              obj.set({
+                selectable: false,
+                evented: false,
+                visible: true,
+                lockMovementX: true,
+                lockMovementY: true,
+              });
+              canvas.sendObjectToBack(obj);
+            });
+            
+            canvas.requestRenderAll();
+          },
+          { crossOrigin: "anonymous" }
+        );
       };
 
-      input.click();
+      reader.readAsDataURL(file);
     };
-  }, [createMask]);
+
+    input.click();
+  }, [dimensions, createMask, addToLibrary]);
 
   return {
     fabricRef,

@@ -4,16 +4,16 @@ export default function MyLibrary({ onAddImage }) {
   const { libraryImages } = useLibrary();
 
   if (!libraryImages.length) {
-    return <p className="text-sm text-gray-500">No uploads yet</p>;
+    return <p className="p-2 text-sm text-gray-500">No uploads yet</p>;
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="p-2 grid grid-cols-2 gap-2">
       {libraryImages.map((img) => (
         <button
           key={img.id}
           onClick={() => onAddImage(img.src)}
-          className="border rounded overflow-hidden hover:ring-2 ring-[#646323]"
+          className="rounded overflow-hidden cursor-pointer"
         >
           <img
             src={img.src}
