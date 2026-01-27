@@ -193,6 +193,7 @@ export const useFabric = (dimensions, setZoom) => {
         cornerColor: "#646323",
         cornerSize: 8,
         transparentCorners: false,
+        userEditable: true,
       });
 
       canvas.add(text);
@@ -232,15 +233,28 @@ export const useFabric = (dimensions, setZoom) => {
   );
 
   const addGraphic = useCallback(
-    (graphic) => {
+    async (graphic) => {
       const canvas = fabricRef.current;
       if (!canvas) return;
 
-      fabric.loadSVGFromURL(graphic.file, (objects, options) => {
+      try {
+        // Fabric v7: promise-based SVG loading
+        const { objects, options } = await fabric.loadSVGFromURL(graphic.file);
+        if (!objects || objects.length === 0) {
+          console.error("Failed to load SVG from:", graphic.file);
+          return;
+        }
+
         const obj = fabric.util.groupSVGElements(objects, options);
 
         const centerX = canvas.width / 2 + (dimensions.leftOffset || 0);
         const centerY = canvas.height / 2 + (dimensions.topOffset || 0);
+
+        // Fit the graphic into the print area (leave padding)
+        const maxW = Math.max(1, dimensions.width * 0.7);
+        const maxH = Math.max(1, dimensions.height * 0.7);
+        obj.scaleToWidth(maxW);
+        if (obj.getScaledHeight() > maxH) obj.scaleToHeight(maxH);
 
         const clipMask = createMask({
           canvas,
@@ -256,6 +270,7 @@ export const useFabric = (dimensions, setZoom) => {
           evented: true,
           visible: true,
           name: "user-graphic",
+          userEditable: true,
           clipPath: clipMask,
           cornerColor: "#646323",
           cornerSize: 8,
@@ -270,13 +285,16 @@ export const useFabric = (dimensions, setZoom) => {
         canvas.add(obj);
         canvas.setActiveObject(obj);
 
-        const mockups = canvas
+        // keep mockup behind
+        canvas
           .getObjects()
-          .filter((o) => o.name === "mockupBackground");
-        mockups.forEach((m) => canvas.sendObjectToBack(m));
+          .filter((o) => o.name === "mockupBackground")
+          .forEach((m) => canvas.sendObjectToBack(m));
 
         canvas.requestRenderAll();
-      });
+      } catch (error) {
+        console.error("Error loading SVG:", error);
+      }
     },
     [dimensions, createMask],
   );
@@ -294,7 +312,7 @@ export const useFabric = (dimensions, setZoom) => {
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const imageData = {
           id: crypto.randomUUID(),
           src: reader.result,
@@ -303,43 +321,43 @@ export const useFabric = (dimensions, setZoom) => {
         };
 
         addToLibrary(imageData);
-        fabric.Image.fromURL(
-          reader.result,
-          (img) => {
-            // Scale image if it's too large
-            if (img.width > 400) {
-              img.scaleToWidth(250);
-            } else if (img.height > 400) {
-              img.scaleToHeight(250);
-            }
+        try {
+          const img = await fabric.FabricImage.fromURL(reader.result, {
+            crossOrigin: "anonymous",
+          });
 
-            // Position image in the center of the print area
-            const centerX = canvas.width / 2 + (dimensions.leftOffset || 0);
-            const centerY = canvas.height / 2 + (dimensions.topOffset || 0);
+          // Scale image if it's too large
+          if (img.width > 400) img.scaleToWidth(250);
+          else if (img.height > 400) img.scaleToHeight(250);
 
-            img.set({
-              left: centerX,
-              top: centerY,
-              originX: "center",
-              originY: "center",
-              selectable: true,
-              evented: true,
-              visible: true,
-              name: "user-image",
-              clipPath: createMask({
-                canvas,
-                currentDimensions: dimensions,
-              }),
-            });
+          // Position image in the center of the print area
+          const centerX = canvas.width / 2 + (dimensions.leftOffset || 0);
+          const centerY = canvas.height / 2 + (dimensions.topOffset || 0);
 
-            canvas.add(img);
-            canvas.setActiveObject(img);
+          img.set({
+            left: centerX,
+            top: centerY,
+            originX: "center",
+            originY: "center",
+            selectable: true,
+            evented: true,
+            visible: true,
+            name: "user-image",
+            userEditable: true,
+            clipPath: createMask({
+              canvas,
+              currentDimensions: dimensions,
+            }),
+          });
 
-            // Ensure mockup stays at back
-            const mockupObjects = canvas
-              .getObjects()
-              .filter((obj) => obj.name === "mockupBackground");
-            mockupObjects.forEach((obj) => {
+          canvas.add(img);
+          canvas.setActiveObject(img);
+
+          // Ensure mockup stays at back
+          canvas
+            .getObjects()
+            .filter((obj) => obj.name === "mockupBackground")
+            .forEach((obj) => {
               obj.set({
                 selectable: false,
                 evented: false,
@@ -350,10 +368,10 @@ export const useFabric = (dimensions, setZoom) => {
               canvas.sendObjectToBack(obj);
             });
 
-            canvas.requestRenderAll();
-          },
-          { crossOrigin: "anonymous" },
-        );
+          canvas.requestRenderAll();
+        } catch (error) {
+          console.error("Error loading image:", error);
+        }
       };
 
       reader.readAsDataURL(file);

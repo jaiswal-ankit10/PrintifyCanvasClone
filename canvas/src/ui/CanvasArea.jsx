@@ -79,13 +79,14 @@ const CanvasArea = forwardRef(
       const canvas = fabricRef.current;
       if (!canvas) return;
 
+      // Include all user-added objects even when selection is temporarily disabled (e.g., pan mode)
       const layers = canvas
         .getObjects()
         .filter(
           (obj) =>
-            obj.selectable &&
             obj.name !== "mockupBackground" &&
-            obj.name !== "printGuide",
+            obj.name !== "printGuide" &&
+            obj.userEditable !== false, // default true/undefined counts as editable
         )
         .slice()
         .reverse();
@@ -103,9 +104,12 @@ const CanvasArea = forwardRef(
         const canvas = fabricRef.current;
         if (!canvas) return;
 
-        fabric.Image.fromURL(
-          url,
-          (img) => {
+        (async () => {
+          try {
+            // Fabric v7: promise-based image loading
+            const img = await fabric.FabricImage.fromURL(url, {
+              crossOrigin: "anonymous",
+            });
             // Scale image if it's too large
             if (img.width > 400) {
               img.scaleToWidth(250);
@@ -138,6 +142,7 @@ const CanvasArea = forwardRef(
               evented: true,
               visible: true,
               name: "user-image",
+              userEditable: true,
               clipPath: clipMask,
             });
 
@@ -149,9 +154,10 @@ const CanvasArea = forwardRef(
 
             canvas.requestRenderAll();
             syncLayers();
-          },
-          { crossOrigin: "anonymous" },
-        );
+          } catch (error) {
+            console.error("Error loading image from URL:", error);
+          }
+        })();
       },
       [syncLayers, dimensions, enforceSystemObjects],
     );
@@ -194,7 +200,7 @@ const CanvasArea = forwardRef(
       let isLoading = false;
 
       const onAdded = (e) => {
-        if (isLoading || !e.target?.selectable) return;
+        if (isLoading || !e.target) return;
         enforceSystemObjects();
         syncLayers();
       };
@@ -260,7 +266,7 @@ const CanvasArea = forwardRef(
 
       canvas.add(guide);
       enforceSystemObjects();
-      canvas.renderAll();
+      canvas.requestRenderAll();
     }, [dimensions, enforceSystemObjects]);
 
     /* Mockup */
@@ -293,7 +299,7 @@ const CanvasArea = forwardRef(
         }
       });
 
-      canvas.renderAll();
+      canvas.requestRenderAll();
     }, [isPanMode]);
 
     return (

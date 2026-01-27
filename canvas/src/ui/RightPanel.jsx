@@ -5,7 +5,6 @@ export default function RightPanel({
   isOpen,
   onClose,
   layers,
-  refreshLayers,
   setLayers,
   canvasRef,
 }) {
@@ -14,13 +13,13 @@ export default function RightPanel({
   const handleSelect = (obj) => {
     const canvas = canvasRef.current.getCanvas();
     canvas.setActiveObject(obj);
-    canvas.renderAll();
+    canvas.requestRenderAll();
   };
 
   const handleDelete = (obj) => {
     const canvas = canvasRef.current.getCanvas();
     canvas.remove(obj);
-    canvas.renderAll();
+    canvas.requestRenderAll();
     const userObjects = canvas
       .getObjects()
       .filter((o) => o.selectable && o.name !== "printGuide");
@@ -29,7 +28,7 @@ export default function RightPanel({
 
   const handleToggleVisibility = (obj) => {
     obj.set("visible", !obj.visible);
-    canvasRef.current.getCanvas().renderAll();
+    canvasRef.current.getCanvas().requestRenderAll();
     setLayers((prev) => [...prev]);
   };
   const updateObject = (obj, properties) => {
@@ -41,7 +40,11 @@ export default function RightPanel({
     obj.setCoords();
 
     canvas.requestRenderAll();
-    refreshLayers();
+    // Refresh layers by getting updated objects from canvas
+    const userObjects = canvas
+      .getObjects()
+      .filter((o) => o.selectable && o.name !== "printGuide");
+    setLayers([...userObjects].reverse());
   };
 
   return (
