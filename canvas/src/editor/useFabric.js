@@ -284,7 +284,7 @@ export const useFabric = (dimensions, setZoom) => {
 
             canvas.add(img);
             canvas.setActiveObject(img);
-            
+
             // Ensure mockup stays at back
             const mockupObjects = canvas
               .getObjects()
@@ -299,10 +299,10 @@ export const useFabric = (dimensions, setZoom) => {
               });
               canvas.sendObjectToBack(obj);
             });
-            
+
             canvas.requestRenderAll();
           },
-          { crossOrigin: "anonymous" }
+          { crossOrigin: "anonymous" },
         );
       };
 
