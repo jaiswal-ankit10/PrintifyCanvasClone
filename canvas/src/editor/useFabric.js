@@ -43,7 +43,6 @@ export const useFabric = (dimensions, setZoom) => {
       canvas.isDragging = false;
     });
 
-    // Inside useFabric.js -> initCanvas function
     canvas.on("mouse:wheel", (opt) => {
       const delta = opt.e.deltaY;
       let zoom = canvas.getZoom();
@@ -60,22 +59,6 @@ export const useFabric = (dimensions, setZoom) => {
       setZoom(Math.round(zoom * 100));
     });
 
-    // Inside useFabric.js -> initCanvas function
-    let updateTimeout;
-    const triggerCanvasUpdate = () => {
-      clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(() => {
-        window.dispatchEvent(new Event("canvas-update"));
-      }, 50); // 50ms debounce
-    };
-
-    canvas.on("object:added", triggerCanvasUpdate);
-    canvas.on("object:removed", triggerCanvasUpdate);
-    canvas.on("object:modified", (e) => {
-      if (e.action === "drag" || e.action === "scale") {
-        triggerCanvasUpdate();
-      }
-    });
     fabricRef.current = canvas;
     return canvas;
   }, []);
@@ -89,19 +72,20 @@ export const useFabric = (dimensions, setZoom) => {
     imgElement.src = url;
 
     imgElement.onload = () => {
-      const oldImgs = canvas
-        .getObjects("image")
-        .filter((obj) => !obj.selectable);
-      oldImgs.forEach((o) => canvas.remove(o));
+      const existingMockups = canvas
+        .getObjects()
+        .filter((obj) => obj.name === "mockupBackground");
+      existingMockups.forEach((o) => canvas.remove(o));
 
       const fabricImg = new fabric.Image(imgElement, {
-        name: "mockup",
+        name: "mockupBackground",
         originX: "center",
         originY: "center",
         left: canvas.width / 2,
         top: canvas.height / 2,
         selectable: false,
         evented: false,
+        visible: true,
         clipPath: null,
       });
 
@@ -109,21 +93,51 @@ export const useFabric = (dimensions, setZoom) => {
       fabricImg.scale(scale);
 
       canvas.add(fabricImg);
-      canvas.sendObjectToBack(fabricImg);
-      canvas.renderAll();
+      canvas.sendObjectToBack(fabricImg); // Keep it behind design layers
+
+      // CRITICAL: Set all properties to prevent selection and movement
+      fabricImg.set({
+        selectable: false,
+        evented: false,
+        visible: true,
+        lockMovementX: true,
+        lockMovementY: true,
+        lockRotation: true,
+        lockScalingX: true,
+        lockScalingY: true,
+      });
+
+      // Ensure print guide stays visible
+      const printGuide = canvas
+        .getObjects()
+        .find((o) => o.name === "printGuide");
+      if (printGuide) {
+        printGuide.set({
+          selectable: false,
+          evented: false,
+          visible: true,
+          lockMovementX: true,
+          lockMovementY: true,
+        });
+      }
+
+      canvas.requestRenderAll();
     };
   }, []);
 
-  const createMask = ({ canvas, currentDimensions }) =>
-    new fabric.Rect({
-      left: canvas.width / 2 + (currentDimensions.leftOffset || 0),
-      top: canvas.height / 2 + (currentDimensions.topOffset || 0),
-      width: currentDimensions.width,
-      height: currentDimensions.height,
-      originX: "center",
-      originY: "center",
-      absolutePositioned: true,
-    });
+  const createMask = useCallback(
+    ({ canvas, currentDimensions }) =>
+      new fabric.Rect({
+        left: canvas.width / 2 + (currentDimensions.leftOffset || 0),
+        top: canvas.height / 2 + (currentDimensions.topOffset || 0),
+        width: currentDimensions.width,
+        height: currentDimensions.height,
+        originX: "center",
+        originY: "center",
+        absolutePositioned: true,
+      }),
+    [],
+  );
 
   const updateAllMasks = useCallback(
     (newDimensions) => {
@@ -143,6 +157,21 @@ export const useFabric = (dimensions, setZoom) => {
     },
     [createMask],
   );
+
+  const getUserLayers = useCallback(() => {
+    if (!fabricRef.current) return [];
+    return fabricRef.current
+      .getObjects()
+      .filter((obj) => {
+        // Explicitly exclude mockup and print guide by name first
+        if (obj.name === "printGuide" || obj.name === "mockupBackground") {
+          return false;
+        }
+        // Then check if it's selectable (user-editable content)
+        return obj.selectable === true;
+      })
+      .reverse();
+  }, []);
   // addText
   const addText = useCallback(
     (content = "New Text", fontFamily = "sans-serif") => {
@@ -165,7 +194,39 @@ export const useFabric = (dimensions, setZoom) => {
 
       canvas.add(text);
       canvas.setActiveObject(text);
-      canvas.renderAll();
+
+      // CRITICAL: Ensure mockup and print guide stay non-selectable and visible
+      const mockupObjects = canvas
+        .getObjects()
+        .filter((obj) => obj.name === "mockupBackground");
+      mockupObjects.forEach((obj) => {
+        obj.set({
+          selectable: false,
+          evented: false,
+          visible: true,
+          lockMovementX: true,
+          lockMovementY: true,
+          lockRotation: true,
+          lockScalingX: true,
+          lockScalingY: true,
+        });
+        canvas.sendObjectToBack(obj);
+      });
+
+      canvas.getObjects().forEach((obj) => {
+        if (obj.name === "printGuide") {
+          obj.set({
+            selectable: false,
+            evented: false,
+            visible: true,
+            lockMovementX: true,
+            lockMovementY: true,
+          });
+        }
+      });
+
+      // Use requestRenderAll to ensure proper rendering
+      canvas.requestRenderAll();
     },
     [dimensions, createMask],
   );
@@ -183,35 +244,23 @@ export const useFabric = (dimensions, setZoom) => {
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target.result;
+      reader.onload = () => {
+        reader.onload = () => {
+          const imageData = {
+            id: crypto.randomUUID(),
+            src: reader.result,
+            name: file.name,
+            createdAt: Date.now(),
+          };
 
-        // Use fabric.Image.fromURL which handles the async loading
-        fabric.Image.fromURL(
-          dataUrl,
-          (img) => {
-            img.set({
-              left: canvas.width / 2,
-              top: canvas.height / 2,
-              originX: "center",
-              originY: "center",
-              clipPath: createMask({ canvas, currentDimensions: dimensions }),
-            });
-
-            if (img.width > 400) img.scaleToWidth(250);
-
-            canvas.add(img);
-            canvas.setActiveObject(img);
-
-            // CRITICAL: Force the canvas to re-render after the image is added
-            canvas.requestRenderAll();
-          },
-          { crossOrigin: "anonymous" },
-        );
+          addToLibrary(imageData);
+          addImageToCanvas(reader.result);
+        };
+        reader.readAsDataURL(file);
       };
-      reader.readAsDataURL(file);
+
+      input.click();
     };
-    input.click();
   }, [createMask]);
 
   return {
@@ -221,5 +270,6 @@ export const useFabric = (dimensions, setZoom) => {
     addText,
     uploadImage,
     updateAllMasks,
+    getUserLayers,
   };
 };

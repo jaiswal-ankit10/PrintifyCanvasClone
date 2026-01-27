@@ -154,6 +154,7 @@ export default function LayersPanel({
                         type="text"
                         value="45.00"
                         className="w-full p-3 text-sm outline-none bg-gray-50 text-[#2f2e0c]"
+                        readOnly
                       />
                       <span className="bg-gray-50 px-3 py-4 text-sm font-bold text-[#65644b] border-l border-gray-200">
                         %
@@ -169,6 +170,7 @@ export default function LayersPanel({
                         type="text"
                         value="50.00"
                         className="w-full p-3 text-sm outline-none bg-gray-50 text-[#2f2e0c]"
+                        readOnly
                       />
                       <span className="bg-gray-50 px-3 py-4 text-sm border-l border-gray-200 font-bold text-[#65644b]">
                         %
