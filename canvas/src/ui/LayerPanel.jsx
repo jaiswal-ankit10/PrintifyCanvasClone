@@ -69,9 +69,7 @@ export default function LayersPanel({
 
                 <div className="flex flex-col truncate w-32">
                   <span className="text-md font-bold text-[#2f2e0c] truncate">
-                    {obj.type.includes("text")
-                      ? obj.text
-                      : `Image ${index + 1}`}
+                    {obj.type.includes("text") ? obj.text : obj.type}
                   </span>
                   {obj.type.includes("text") && (
                     <span className="text-sm text-[#646323] truncate font-medium">

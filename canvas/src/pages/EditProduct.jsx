@@ -127,6 +127,7 @@ export default function EditProduct() {
             selectedObject={selectedObject}
             onDelete={() => canvasAreaRef.current?.deleteSelected?.()}
             onCopy={() => canvasAreaRef.current?.copySelected?.()}
+            onChangeColor={() => canvasAreaRef.current?.changeColor?.()}
           />
           <SidePanel
             title={activeTool}

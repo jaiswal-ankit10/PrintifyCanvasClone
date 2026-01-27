@@ -43,6 +43,7 @@ const CanvasArea = forwardRef(
       selectedObject,
       deleteSelected,
       copySelected,
+      changeColor,
     } = useFabric(dimensions, setZoom);
 
     const setLayersRef = useRef(setLayers);
@@ -184,6 +185,7 @@ const CanvasArea = forwardRef(
       selectedObject,
       deleteSelected,
       copySelected,
+      changeColor,
     }));
 
     /* Init canvas */

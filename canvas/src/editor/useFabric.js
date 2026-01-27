@@ -158,10 +158,13 @@ export const useFabric = (dimensions, setZoom) => {
       activeObjects.forEach((obj) => canvas.remove(obj));
       canvas.discardActiveObject();
       canvas.requestRenderAll();
-      saveState(); // Capture in history
+      saveState();
     }
   }, [saveState]);
 
+  const changeColor = useCallback(() => {
+    // console.log("Change color");
+  }, [saveState]);
   const copySelected = useCallback(async () => {
     const canvas = fabricRef.current;
     const activeObject = canvas.getActiveObject();
@@ -575,5 +578,6 @@ export const useFabric = (dimensions, setZoom) => {
     selectedObject,
     deleteSelected,
     copySelected,
+    changeColor,
   };
 };
