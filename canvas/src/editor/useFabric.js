@@ -322,6 +322,7 @@ export const useFabric = (dimensions, setZoom) => {
           selectable: false,
           evented: false,
           visible: true,
+
           lockMovementX: true,
           lockMovementY: true,
           lockRotation: true,
@@ -353,7 +354,7 @@ export const useFabric = (dimensions, setZoom) => {
       if (!canvas) return;
 
       try {
-        // 1. Load SVG using Fabric v7 promise-based API
+        // 1. Load SVG
         const { objects, options } = await fabric.loadSVGFromURL(graphic.file);
         if (!objects || objects.length === 0) {
           console.error("Failed to load SVG from:", graphic.file);

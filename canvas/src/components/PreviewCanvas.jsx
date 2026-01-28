@@ -13,24 +13,49 @@ export default function PreviewCanvas({
   useEffect(() => {
     const canvasSize = large ? 600 : 140;
 
-    // 1. Initialize Canvas
+    // 1. Initialize Canvas with a clean background
     const canvas = new fabric.Canvas(canvasRef.current, {
       selection: false,
       preserveObjectStacking: true,
       width: canvasSize,
       height: canvasSize,
+      backgroundColor: "#ffffff", // Prevents transparency issues
     });
 
     const loadContent = async () => {
       try {
         if (!mockupUrl) return;
 
-        // 2. Use FabricImage.fromURL (standard for v6)
+        // 2. Load the Design JSON FIRST
+        // This ensures the JSON "resets" the canvas before we add our mockup
+        if (sideJson) {
+          await canvas.loadFromJSON(sideJson);
+
+          canvas.backgroundImage = null;
+
+          canvas.getObjects().forEach((obj) => {
+            if (obj.name === "printGuide" || obj.name === "guideline") {
+              canvas.remove(obj);
+              return;
+            }
+            obj.set({ selectable: true, evented: true });
+
+            // Scale coordinates from 600px edit canvas to 140px grid
+            if (!large) {
+              const ratio = 140 / 600;
+              obj.left *= ratio;
+              obj.top *= ratio;
+              obj.scaleX *= ratio;
+              obj.scaleY *= ratio;
+            }
+          });
+        }
+
+        // 3. Load the Mockup AFTER JSON to lock it as the background
         const img = await fabric.FabricImage.fromURL(mockupUrl, {
           crossOrigin: "anonymous",
         });
 
-        // Calculate scale
         const scale = (canvasSize * 0.95) / Math.max(img.width, img.height);
 
         img.set({
@@ -44,38 +69,10 @@ export default function PreviewCanvas({
 
         canvas.backgroundImage = img;
 
-        // 3. Load the Design JSON
-        if (sideJson) {
-          await canvas.loadFromJSON(sideJson);
-
-          canvas.getObjects().forEach((obj) => {
-            if (obj === img) return;
-
-            obj.set({ selectable: false, evented: false });
-
-            if (!large) {
-              const ratio = 140 / 600;
-              obj.left *= ratio;
-              obj.top *= ratio;
-              obj.scaleX *= ratio;
-              obj.scaleY *= ratio;
-            }
-
-            // Apply CMYK-like filter to images
-            if (colorMode === "cmyk" && obj.type === "image") {
-              const saturationFilter = new fabric.filters.Saturation({
-                saturation: -0.2,
-              });
-              obj.filters = [saturationFilter];
-              obj.applyFilters();
-            }
-          });
-        }
-
         canvas.renderAll();
         onReady?.(canvas);
       } catch (error) {
-        // console.error("Error loading preview canvas:", error);
+        console.error("Error loading preview:", error);
       }
     };
 
@@ -84,7 +81,7 @@ export default function PreviewCanvas({
     return () => {
       canvas.dispose();
     };
-  }, [mockupUrl, sideJson, colorMode, large, onReady]);
+  }, [mockupUrl, sideJson, colorMode, large]);
 
   return (
     <canvas ref={canvasRef} style={{ display: "block", margin: "0 auto" }} />

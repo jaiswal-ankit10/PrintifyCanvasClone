@@ -90,20 +90,28 @@ export default function EditProduct() {
   const syncCanvasData = (callback) => {
     const canvas = canvasAreaRef.current?.getCanvas();
     if (canvas) {
+      // Option A: Explicitly set backgroundImage to null before exporting
+      const originalBG = canvas.backgroundImage;
+      canvas.backgroundImage = null;
+
       const jsonData = canvas.toJSON([
         "name",
         "selectable",
         "evented",
         "clipPath",
         "fontFamily",
+        "excludeFromExport",
       ]);
+
+      // Restore it for the editor
+      canvas.backgroundImage = originalBG;
+      canvas.renderAll();
+
       setCanvasData((prev) => {
         const newData = { ...prev, [activeSide]: jsonData };
-        if (callback) callback(); // Run any extra logic (like mode switch) after saving
+        if (callback) callback();
         return newData;
       });
-    } else if (callback) {
-      callback();
     }
   };
   // Sync canvas state with local state
@@ -138,9 +146,10 @@ export default function EditProduct() {
           <div className="flex-1 flex flex-col overflow-hidden ">
             <TopBar
               activeMode={activeMode}
-              setActiveMode={(mode) => {
+              setActiveMode={async (mode) => {
                 if (mode === "preview") {
-                  syncCanvasData(() => setActiveMode(mode));
+                  await syncCanvasData();
+                  setActiveMode(mode);
                 } else {
                   setActiveMode(mode);
                 }
