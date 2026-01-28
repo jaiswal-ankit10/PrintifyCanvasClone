@@ -13,6 +13,7 @@ import GraphicsLibrary from "../components/GraphicsLibrary";
 import TextOptions from "../components/TextOptions";
 import MyLibrary from "../components/MyLibrary";
 import Templates from "../components/Templates";
+import PreviewPage from "./PreviewPage";
 
 export default function EditProduct() {
   const { productId } = useParams();
@@ -86,6 +87,25 @@ export default function EditProduct() {
     setActiveSide(newSide);
   };
 
+  const syncCanvasData = (callback) => {
+    const canvas = canvasAreaRef.current?.getCanvas();
+    if (canvas) {
+      const jsonData = canvas.toJSON([
+        "name",
+        "selectable",
+        "evented",
+        "clipPath",
+        "fontFamily",
+      ]);
+      setCanvasData((prev) => {
+        const newData = { ...prev, [activeSide]: jsonData };
+        if (callback) callback(); // Run any extra logic (like mode switch) after saving
+        return newData;
+      });
+    } else if (callback) {
+      callback();
+    }
+  };
   // Sync canvas state with local state
   useEffect(() => {
     if (canvasAreaRef.current) {
@@ -105,103 +125,118 @@ export default function EditProduct() {
   }, []);
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#f8f8f6] ">
-      <div className="flex flex-1 overflow-hidden">
-        <div className="shrink-0 h-screen">
-          <LeftToolbar
-            onUpload={handleUpload}
-            activeTool={activeTool}
-            onToolClick={handleToolClick}
-          />
-        </div>
-
-        <div className="flex-1 flex flex-col overflow-hidden ">
-          <TopBar
-            activeMode={activeMode}
-            setActiveMode={setActiveMode}
-            setIsEditOpen={setIsEditOpen}
-            isEditOpen={isEditOpen}
-            onUndo={() => canvasAreaRef.current?.undo?.()}
-            onRedo={() => canvasAreaRef.current?.redo?.()}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            selectedObject={selectedObject}
-            onDelete={() => canvasAreaRef.current?.deleteSelected?.()}
-            onCopy={() => canvasAreaRef.current?.copySelected?.()}
-            onChangeColor={() => canvasAreaRef.current?.changeColor?.()}
-          />
-          <SidePanel
-            title={activeTool}
-            isOpen={!!activeTool}
-            onClose={() => setActiveTool(null)}
-          >
-            {activeTool === "Add text" && (
-              <TextOptions
-                onAddText={handleAddText}
-                setIsProcessing={setIsProcessing}
-                onClosePanel={() => setActiveTool(null)}
-              />
-            )}
-            {activeTool === "AI" && <AIGenerator />}
-            {activeTool === "Graphics" && (
-              <GraphicsLibrary
-                onAddGraphic={(graphic) =>
-                  canvasAreaRef.current?.addGraphic(graphic)
-                }
-              />
-            )}
-            {activeTool === "My library" && (
-              <MyLibrary
-                onAddImage={(src) =>
-                  canvasAreaRef.current?.addImageFromURL(src)
-                }
-              />
-            )}
-            {activeTool === "Templates" && <Templates />}
-          </SidePanel>
-
-          <div className="relative flex-1 bg-[#f5f5f0] overflow-hidden">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <CanvasArea
-                ref={canvasAreaRef}
-                mockup={product.mockups[activeSide]}
-                isPanMode={isPanMode}
-                activeSide={activeSide}
-                dimensions={currentDimensions}
-                zoom={zoom}
-                setZoom={setZoom}
-                isProcessing={isProcessing}
-                sideData={canvasData[activeSide]}
-                setLayers={setLayers}
-                onSelectionChange={handleSelectionChange}
-                onUndoRedoChange={handleUndoRedoChange}
-              />
-            </div>
-
-            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
-              <SideTabs
-                sides={product.sides}
-                activeSide={activeSide}
-                setActiveSide={handleSideChange}
-              />
-            </div>
+      {activeMode === "edit" ? (
+        <div className="flex flex-1 overflow-hidden">
+          <div className="shrink-0 h-screen">
+            <LeftToolbar
+              onUpload={handleUpload}
+              activeTool={activeTool}
+              onToolClick={handleToolClick}
+            />
           </div>
 
-          <BottonBar
-            isPanMode={isPanMode}
-            setIsPanMode={setIsPanMode}
-            zoom={zoom}
-            setZoom={setZoom}
+          <div className="flex-1 flex flex-col overflow-hidden ">
+            <TopBar
+              activeMode={activeMode}
+              setActiveMode={(mode) => {
+                if (mode === "preview") {
+                  syncCanvasData(() => setActiveMode(mode));
+                } else {
+                  setActiveMode(mode);
+                }
+              }}
+              setIsEditOpen={setIsEditOpen}
+              isEditOpen={isEditOpen}
+              onUndo={() => canvasAreaRef.current?.undo?.()}
+              onRedo={() => canvasAreaRef.current?.redo?.()}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              selectedObject={selectedObject}
+              onDelete={() => canvasAreaRef.current?.deleteSelected?.()}
+              onCopy={() => canvasAreaRef.current?.copySelected?.()}
+              onChangeColor={() => canvasAreaRef.current?.changeColor?.()}
+            />
+            <SidePanel
+              title={activeTool}
+              isOpen={!!activeTool}
+              onClose={() => setActiveTool(null)}
+            >
+              {activeTool === "Add text" && (
+                <TextOptions
+                  onAddText={handleAddText}
+                  setIsProcessing={setIsProcessing}
+                  onClosePanel={() => setActiveTool(null)}
+                />
+              )}
+              {activeTool === "AI" && <AIGenerator />}
+              {activeTool === "Graphics" && (
+                <GraphicsLibrary
+                  onAddGraphic={(graphic) =>
+                    canvasAreaRef.current?.addGraphic(graphic)
+                  }
+                />
+              )}
+              {activeTool === "My library" && (
+                <MyLibrary
+                  onAddImage={(src) =>
+                    canvasAreaRef.current?.addImageFromURL(src)
+                  }
+                />
+              )}
+              {activeTool === "Templates" && <Templates />}
+            </SidePanel>
+
+            <div className="relative flex-1 bg-[#f5f5f0] overflow-hidden">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <CanvasArea
+                  ref={canvasAreaRef}
+                  mockup={product.mockups[activeSide]}
+                  isPanMode={isPanMode}
+                  activeSide={activeSide}
+                  dimensions={currentDimensions}
+                  zoom={zoom}
+                  setZoom={setZoom}
+                  isProcessing={isProcessing}
+                  sideData={canvasData[activeSide]}
+                  setLayers={setLayers}
+                  onSelectionChange={handleSelectionChange}
+                  onUndoRedoChange={handleUndoRedoChange}
+                />
+              </div>
+
+              <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
+                <SideTabs
+                  sides={product.sides}
+                  activeSide={activeSide}
+                  setActiveSide={handleSideChange}
+                />
+              </div>
+            </div>
+
+            <BottonBar
+              isPanMode={isPanMode}
+              setIsPanMode={setIsPanMode}
+              zoom={zoom}
+              setZoom={setZoom}
+            />
+          </div>
+
+          <RightPanel
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            layers={layers}
+            canvasRef={canvasAreaRef}
+            setLayers={setLayers}
           />
         </div>
-
-        <RightPanel
-          isOpen={isEditOpen}
-          onClose={() => setIsEditOpen(false)}
-          layers={layers}
-          canvasRef={canvasAreaRef}
-          setLayers={setLayers}
+      ) : (
+        <PreviewPage
+          product={product}
+          canvasData={canvasData}
+          activeMode={activeMode}
+          setActiveMode={setActiveMode}
         />
-      </div>
+      )}
     </div>
   );
 }

@@ -37,6 +37,8 @@ export default function LayersPanel({
     onSelect(obj);
   };
 
+  // console.log(objects);
+
   return (
     <div className="flex flex-col gap-3">
       {objects.map((obj, index) => {
@@ -69,7 +71,7 @@ export default function LayersPanel({
 
                 <div className="flex flex-col truncate w-32">
                   <span className="text-md font-bold text-[#2f2e0c] truncate">
-                    {obj.type.includes("text") ? obj.text : obj.type}
+                    {obj.type.includes("text") ? obj.text : obj.name}
                   </span>
                   {obj.type.includes("text") && (
                     <span className="text-sm text-[#646323] truncate font-medium">

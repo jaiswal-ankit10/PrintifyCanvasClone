@@ -67,6 +67,14 @@ export const products = [
       sleeveRight: "/mockups/hoodies/sleeveRight.png",
       neck: "/mockups/hoodies/neck.png",
     },
+    previewMockups: {
+      front: "/previews/hoodie/Front.png",
+      back: "/previews/hoodie/Back.png",
+      folded: "/previews/hoodie/Folded.png",
+      person1: "/previews/hoodie/Person1.png",
+      person2: "/previews/hoodie/Person2.png",
+      person3: "/previews/hoodie/Person3.png",
+    },
   },
 
   {
@@ -137,6 +145,13 @@ export const products = [
       sleeveRight: "/mockups/crewneck/sleeveRight.png",
       neck: "/mockups/crewneck/neck.png",
     },
+    previewMockups: {
+      front: "/previews/crewneck/Front.png",
+      back: "/previews/crewneck/Back.png",
+      folded: "/previews/crewneck/Folded.png",
+      person1: "/previews/crewneck/Person1.png",
+      person2: "/previews/crewneck/Person2.png",
+    },
   },
 
   {
@@ -174,6 +189,16 @@ export const products = [
       front: "/mockups/t-shirt/front.png",
       back: "/mockups/t-shirt/back.png",
     },
+    previewMockups: {
+      front: "/previews/t-shirt/Front.png",
+      back: "/previews/t-shirt/Back.png",
+      folded: "/previews/t-shirt/Folded.png",
+      person1Front: "/previews/t-shirt/Person1Front.png",
+      person1Back: "/previews/t-shirt/Person1Back.png",
+      person2: "/previews/t-shirt/Person2.png",
+      person3Front: "/previews/t-shirt/Person3Front.png",
+      person3Back: "/previews/t-shirt/Person3Back.png",
+    },
   },
 
   {
@@ -198,6 +223,9 @@ export const products = [
     ],
 
     mockups: {
+      mug: "/mockups/mug/mug.png",
+    },
+    previewMockups: {
       mug: "/mockups/mug/mug.png",
     },
   },
