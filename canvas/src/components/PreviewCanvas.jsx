@@ -33,7 +33,6 @@ export default function PreviewCanvas({
         // Calculate scale
         const scale = (canvasSize * 0.95) / Math.max(img.width, img.height);
 
-        // V6 FIX: Assign directly to canvas.backgroundImage
         img.set({
           scaleX: scale,
           scaleY: scale,
@@ -47,16 +46,13 @@ export default function PreviewCanvas({
 
         // 3. Load the Design JSON
         if (sideJson) {
-          // V6 FIX: loadFromJSON is async and does not use a callback in the same way
           await canvas.loadFromJSON(sideJson);
 
           canvas.getObjects().forEach((obj) => {
-            // Do not modify the background image if it ended up in getObjects
             if (obj === img) return;
 
             obj.set({ selectable: false, evented: false });
 
-            // Scale coordinates from 600px edit canvas to 140px grid
             if (!large) {
               const ratio = 140 / 600;
               obj.left *= ratio;
@@ -79,7 +75,7 @@ export default function PreviewCanvas({
         canvas.renderAll();
         onReady?.(canvas);
       } catch (error) {
-        console.error("Error loading preview canvas:", error);
+        // console.error("Error loading preview canvas:", error);
       }
     };
 
@@ -91,9 +87,6 @@ export default function PreviewCanvas({
   }, [mockupUrl, sideJson, colorMode, large, onReady]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ display: "block", margin: "0 auto", border: "1px solid #eee" }}
-    />
+    <canvas ref={canvasRef} style={{ display: "block", margin: "0 auto" }} />
   );
 }

@@ -1,5 +1,4 @@
 import PreviewCanvas from "./PreviewCanvas";
-import { getSideForPreview } from "../utils/getSideForPreview";
 
 export default function PreviewGrid({
   previewMockups,
@@ -8,22 +7,26 @@ export default function PreviewGrid({
   setActivePreview,
 }) {
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {Object.entries(previewMockups).map(([key, url]) => {
-        const sideJson = getSideForPreview(key, canvasData);
+    <div className="grid grid-cols-2 gap-3">
+      {Object.entries(previewMockups).map(([key, mockup]) => {
+        const sideJson = canvasData[mockup.usesSide];
 
         return (
           <button
             key={key}
             onClick={() => setActivePreview(key)}
-            className={`border rounded p-1 ${
+            className={`w-38 border rounded p-1 cursor-pointer ${
               activePreview === key ? "border-black" : "border-gray-200"
             }`}
           >
-            <PreviewCanvas mockupUrl={url} sideJson={sideJson} />
-            <p className="text-[10px] text-center capitalize">
-              {key.replace(/([A-Z])/g, " $1")}
-            </p>
+            {/* Key forces new Fabric instance */}
+            <PreviewCanvas
+              key={key}
+              mockupUrl={mockup.image}
+              sideJson={sideJson}
+            />
+
+            <p className="text-[10px] text-center">{mockup.label}</p>
           </button>
         );
       })}

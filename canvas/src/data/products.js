@@ -68,12 +68,36 @@ export const products = [
       neck: "/mockups/hoodies/neck.png",
     },
     previewMockups: {
-      front: "/previews/hoodie/Front.png",
-      back: "/previews/hoodie/Back.png",
-      folded: "/previews/hoodie/Folded.png",
-      person1: "/previews/hoodie/Person1.png",
-      person2: "/previews/hoodie/Person2.png",
-      person3: "/previews/hoodie/Person3.png",
+      front: {
+        label: "Front",
+        image: "/previews/hoodie/Front.png",
+        usesSide: "front",
+      },
+      back: {
+        label: "Back",
+        image: "/previews/hoodie/Back.png",
+        usesSide: "back",
+      },
+      folded: {
+        label: "Folded",
+        image: "/previews/hoodie/Folded.png",
+        usesSide: "front",
+      },
+      person1: {
+        label: "Person 1",
+        image: "/previews/hoodie/Person1.png",
+        usesSide: "front",
+      },
+      person2: {
+        label: "Person 2",
+        image: "/previews/hoodie/Person2.png",
+        usesSide: "front",
+      },
+      person3: {
+        label: "Person 3",
+        image: "/previews/hoodie/Person3.png",
+        usesSide: "front",
+      },
     },
   },
 
@@ -146,11 +170,31 @@ export const products = [
       neck: "/mockups/crewneck/neck.png",
     },
     previewMockups: {
-      front: "/previews/crewneck/Front.png",
-      back: "/previews/crewneck/Back.png",
-      folded: "/previews/crewneck/Folded.png",
-      person1: "/previews/crewneck/Person1.png",
-      person2: "/previews/crewneck/Person2.png",
+      front: {
+        label: "Front",
+        image: "/previews/crewneck/Front.png",
+        usesSide: "front",
+      },
+      back: {
+        label: "Back",
+        image: "/previews/crewneck/Back.png",
+        usesSide: "back",
+      },
+      folded: {
+        label: "Folded",
+        image: "/previews/crewneck/Folded.png",
+        usesSide: "front",
+      },
+      person1: {
+        label: "Person 1",
+        image: "/previews/crewneck/Person1.png",
+        usesSide: "front",
+      },
+      person2: {
+        label: "Person 2",
+        image: "/previews/crewneck/Person2.png",
+        usesSide: "front",
+      },
     },
   },
 
@@ -190,14 +234,46 @@ export const products = [
       back: "/mockups/t-shirt/back.png",
     },
     previewMockups: {
-      front: "/previews/t-shirt/Front.png",
-      back: "/previews/t-shirt/Back.png",
-      folded: "/previews/t-shirt/Folded.png",
-      person1Front: "/previews/t-shirt/Person1Front.png",
-      person1Back: "/previews/t-shirt/Person1Back.png",
-      person2: "/previews/t-shirt/Person2.png",
-      person3Front: "/previews/t-shirt/Person3Front.png",
-      person3Back: "/previews/t-shirt/Person3Back.png",
+      front: {
+        label: "Front",
+        image: "/previews/t-shirt/Front.png",
+        usesSide: "front",
+      },
+      back: {
+        label: "Back",
+        image: "/previews/t-shirt/Back.png",
+        usesSide: "back",
+      },
+      folded: {
+        label: "Folded",
+        image: "/previews/t-shirt/Folded.png",
+        usesSide: "front",
+      },
+      person1Front: {
+        label: "Person 1 (Front)",
+        image: "/previews/t-shirt/Person1Front.png",
+        usesSide: "front",
+      },
+      person1Back: {
+        label: "Person 1 (Back)",
+        image: "/previews/t-shirt/Person1Back.png",
+        usesSide: "back",
+      },
+      person2: {
+        label: "Person 2",
+        image: "/previews/t-shirt/Person2.png",
+        usesSide: "front",
+      },
+      person3Front: {
+        label: "Person 3 (Front)",
+        image: "/previews/t-shirt/Person3Front.png",
+        usesSide: "front",
+      },
+      person3Back: {
+        label: "Person 3 (Back)",
+        image: "/previews/t-shirt/Person3Back.png",
+        usesSide: "back",
+      },
     },
   },
 
@@ -226,7 +302,11 @@ export const products = [
       mug: "/mockups/mug/mug.png",
     },
     previewMockups: {
-      mug: "/mockups/mug/mug.png",
+      mug: {
+        label: "Mug",
+        image: "/mockups/mug/mug.png",
+        usesSide: "mug",
+      },
     },
   },
 ];

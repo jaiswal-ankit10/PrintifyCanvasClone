@@ -17,6 +17,12 @@ export default function PreviewPage({
   const [activePreview, setActivePreview] = useState(previewKeys[0]);
 
   const activeSideJson = getSideForPreview(activePreview, canvasData);
+  const activeMockup = previewMockups[activePreview];
+
+  <PreviewCanvas
+    mockupUrl={activeMockup.image}
+    sideJson={canvasData[activeMockup.usesSide]}
+  />;
 
   const downloadMockup = () => {
     if (!previewCanvas) return;
@@ -38,8 +44,8 @@ export default function PreviewPage({
         {/* LEFT: Large preview */}
         <div className="flex-1 flex items-center justify-center">
           <PreviewCanvas
-            mockupUrl={previewMockups[activePreview]}
-            sideJson={activeSideJson}
+            mockupUrl={activeMockup.image}
+            sideJson={canvasData[activeMockup.usesSide]}
             colorMode={colorMode}
             onReady={setPreviewCanvas}
             large
