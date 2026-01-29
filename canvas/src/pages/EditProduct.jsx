@@ -37,17 +37,6 @@ const getCleanCanvasState = (canvas) => {
         return false;
       }
       
-      // EXPLICITLY EXCLUDE Print Guide by Characteristics
-      // (Dashed Rect, Transparent Fill) - even if name/selectable status is wrong
-      if (
-          type === "rect" && 
-          obj.strokeDashArray && 
-          obj.strokeDashArray.length > 0 && 
-          (!obj.fill || obj.fill === "transparent")
-      ) {
-          return false;
-      }
-
       // EXPLICITLY EXCLUDE System Objects by Characteristics (if name is lost)
       // Mockups and PrintGuides are NOT selectable.
       // User images/text ARE selectable.
@@ -163,11 +152,9 @@ export default function EditProduct() {
     const canvas = canvasAreaRef.current?.getCanvas();
     if (canvas) {
       const jsonData = getCleanCanvasState(canvas);
-      console.log("Saving Side:", activeSide, "Objects:", jsonData?.objects?.length);
 
       setCanvasData((prev) => {
         const newData = { ...prev, [activeSide]: jsonData };
-        console.log("Updated CanvasData:", newData);
         if (callback) callback();
         return newData;
       });
