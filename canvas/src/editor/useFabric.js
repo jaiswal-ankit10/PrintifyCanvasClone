@@ -37,6 +37,20 @@ export const useFabric = (dimensions, setZoom) => {
       "fontSize",
     ]);
 
+    if (json.objects) {
+      json.objects = json.objects.filter((obj) => {
+        // 1. Allow Text objects
+        if (obj.type === "i-text" || obj.type === "text") return true;
+
+        // 2. Allow explicitly named user content
+        if (obj.name === "user-image" || obj.name === "user-graphic")
+          return true;
+
+        // 3. Discard everything else
+        return false;
+      });
+    }
+
     if (historyIndex.current < history.current.length - 1) {
       history.current = history.current.slice(0, historyIndex.current + 1);
     }

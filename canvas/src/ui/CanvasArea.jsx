@@ -68,7 +68,7 @@ const CanvasArea = forwardRef(
             lockRotation: true,
             lockScalingX: true,
             lockScalingY: true,
-            excludeFromExport: true,
+            // excludeFromExport: true,
           });
           canvas.sendObjectToBack(obj);
         }
@@ -79,7 +79,7 @@ const CanvasArea = forwardRef(
             evented: false,
             visible: true,
             lockMovementX: true,
-            excludeFromExport: true,
+            // excludeFromExport: true,
             lockMovementY: true,
           });
         }
@@ -213,7 +213,50 @@ const CanvasArea = forwardRef(
       };
     }, [initCanvas, dimensions, enforceSystemObjects, updateAllMasks]);
 
+    /* SELF-HEALING: Mockup */
+    useEffect(() => {
+      if (!fabricRef.current || !mockup) return;
+      const canvas = fabricRef.current;
+      
+      // Check if mockup exists
+      const existing = canvas.getObjects().find(o => o.name === "mockupBackground");
+      if (!existing) {
+          loadMockup(mockup);
+      }
+    }, [mockup, loadMockup]);
+
+    /* SELF-HEALING: Print Guide */
+    useEffect(() => {
+      if (!fabricRef.current) return;
+      const canvas = fabricRef.current;
+
+      const existingGuide = canvas.getObjects().find((o) => o.name === "printGuide");
+      if (!existingGuide) {
+          const guide = new fabric.Rect({
+            name: "printGuide",
+            left: canvas.width / 2 + (dimensions.leftOffset || 0),
+            top: canvas.height / 2 + (dimensions.topOffset || 0),
+            width: dimensions.width,
+            height: dimensions.height,
+            originX: "center",
+            originY: "center",
+            fill: "transparent",
+            stroke: "#9a9a9a",
+            strokeDashArray: [5, 5],
+            selectable: false,
+            evented: false,
+          });
+          canvas.add(guide);
+          canvas.requestRenderAll();
+      }
+      // Note: We don't remove/update existing guide here to avoid conflict with active resize
+      // The updateAllMasks and resizeObserver handle dimensions updates.
+    }, [dimensions]);
+
+
     /* Load side JSON & listen for changes */
+    const currentSideRef = useRef(activeSide);
+
     useEffect(() => {
       if (!fabricRef.current) return;
       const canvas = fabricRef.current;
@@ -236,15 +279,72 @@ const CanvasArea = forwardRef(
       canvas.on("object:removed", onRemoved);
       canvas.on("object:modified", onModified);
 
-      if (sideData) {
+      // Only load JSON if the active side has changed or if it's the first load
+      if (
+        currentSideRef.current !== activeSide ||
+        canvas.getObjects().length <= 2
+      ) {
+        currentSideRef.current = activeSide;
         isLoading = true;
-        canvas.loadFromJSON(sideData, () => {
+
+        const restoreSystemObjects = () => {
+          // 1. Restore Mockup (Force reload to ensure correct side's mockup)
+          loadMockup(mockup);
+
+          // 2. Restore Print Guide
+          const oldGuide = canvas
+            .getObjects()
+            .find((o) => o.name === "printGuide");
+          if (oldGuide) canvas.remove(oldGuide);
+
+          const guide = new fabric.Rect({
+            name: "printGuide",
+            left: canvas.width / 2 + (dimensions.leftOffset || 0),
+            top: canvas.height / 2 + (dimensions.topOffset || 0),
+            width: dimensions.width,
+            height: dimensions.height,
+            originX: "center",
+            originY: "center",
+            fill: "transparent",
+            stroke: "#9a9a9a",
+            strokeDashArray: [5, 5],
+            selectable: false,
+            evented: false,
+          });
+          canvas.add(guide);
+        };
+
+        if (sideData) {
+          canvas.loadFromJSON(sideData, () => {
+            isLoading = false;
+
+            // GHOST BUSTING
+            canvas.getObjects().forEach((obj) => {
+              const isSystemName =
+                obj.name === "mockupBackground" || obj.name === "printGuide";
+              // Check for nameless images/rects that shouldn't be there
+              // STRICTER: If it's not text or user-image/graphic, kill it.
+              const isAllowed = obj.type.includes("text") || obj.name === "user-image" || obj.name === "user-graphic";
+              
+              if (isSystemName || !isAllowed) {
+                canvas.remove(obj);
+              }
+            });
+
+            restoreSystemObjects();
+            updateAllMasks(dimensions);
+            enforceSystemObjects();
+            canvas.requestRenderAll();
+            syncLayers();
+          });
+        } else {
+          // No side data -> Clear and restore
+          canvas.clear();
           isLoading = false;
-          updateAllMasks(dimensions);
-          enforceSystemObjects();
-          canvas.requestRenderAll();
+          restoreSystemObjects();
           syncLayers();
-        });
+          canvas.requestRenderAll();
+        }
       }
 
       return () => {
@@ -254,45 +354,17 @@ const CanvasArea = forwardRef(
       };
     }, [
       activeSide,
-      sideData,
-      dimensions,
+      // We purposefully omit mockup/dimensions here to prevent reloading JSON just for them. 
+      // The self-healing effects handle them.
+      // sideData, 
+      dimensions, 
       enforceSystemObjects,
       syncLayers,
       updateAllMasks,
     ]);
 
-    /* Print guide */
-    useEffect(() => {
-      if (!fabricRef.current) return;
-      const canvas = fabricRef.current;
+    /* Print guide and Mockup are now handled by the main loading effect */
 
-      const oldGuide = canvas.getObjects().find((o) => o.name === "printGuide");
-      if (oldGuide) canvas.remove(oldGuide);
-
-      const guide = new fabric.Rect({
-        name: "printGuide",
-        left: canvas.width / 2 + (dimensions.leftOffset || 0),
-        top: canvas.height / 2 + (dimensions.topOffset || 0),
-        width: dimensions.width,
-        height: dimensions.height,
-        originX: "center",
-        originY: "center",
-        fill: "transparent",
-        stroke: "#9a9a9a",
-        strokeDashArray: [5, 5],
-        selectable: false,
-        evented: false,
-      });
-
-      canvas.add(guide);
-      enforceSystemObjects();
-      canvas.requestRenderAll();
-    }, [dimensions, enforceSystemObjects]);
-
-    /* Mockup */
-    useEffect(() => {
-      loadMockup(mockup);
-    }, [mockup, loadMockup]);
 
     /* Zoom */
     useEffect(() => {

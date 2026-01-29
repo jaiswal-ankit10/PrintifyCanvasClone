@@ -43,18 +43,39 @@ export default function EditProduct() {
   const activeSideData = product.sides.find((s) => s.key === activeSide);
   const currentDimensions = activeSideData.printDimensions;
 
+  // helper to exclude system objects (mockup, printGuide) and ghost objects from saved JSON
+  const getCleanCanvasState = (canvas) => {
+    if (!canvas) return null;
+    const json = canvas.toJSON([
+      "name",
+      "selectable",
+      "evented",
+      "clipPath",
+      "fontFamily",
+      "excludeFromExport",
+    ]);
+
+    if (json.objects) {
+      json.objects = json.objects.filter((obj) => {
+        // 1. Allow Text objects
+        if (obj.type === "i-text" || obj.type === "text") return true;
+
+        // 2. Allow explicitly named user content
+        if (obj.name === "user-image" || obj.name === "user-graphic")
+          return true;
+
+        return false;
+      });
+    }
+    return json;
+  };
+
   const handleAddText = (content, fontFamily) => {
     canvasAreaRef.current?.addText(content, fontFamily);
 
     const canvas = canvasAreaRef.current?.getCanvas();
     if (canvas) {
-      const jsonData = canvas.toJSON([
-        "name",
-        "selectable",
-        "evented",
-        "clipPath",
-        "fontFamily",
-      ]);
+      const jsonData = getCleanCanvasState(canvas);
       setCanvasData((prev) => ({ ...prev, [activeSide]: jsonData }));
 
       const userObjects = canvas
@@ -74,13 +95,7 @@ export default function EditProduct() {
 
     const canvas = canvasAreaRef.current?.getCanvas();
     if (canvas) {
-      const jsonData = canvas.toJSON([
-        "name",
-        "selectable",
-        "evented",
-        "clipPath",
-        "fontFamily",
-      ]);
+      const jsonData = getCleanCanvasState(canvas);
       setCanvasData((prev) => ({ ...prev, [activeSide]: jsonData }));
     }
 
@@ -90,22 +105,7 @@ export default function EditProduct() {
   const syncCanvasData = (callback) => {
     const canvas = canvasAreaRef.current?.getCanvas();
     if (canvas) {
-      // Option A: Explicitly set backgroundImage to null before exporting
-      const originalBG = canvas.backgroundImage;
-      canvas.backgroundImage = null;
-
-      const jsonData = canvas.toJSON([
-        "name",
-        "selectable",
-        "evented",
-        "clipPath",
-        "fontFamily",
-        "excludeFromExport",
-      ]);
-
-      // Restore it for the editor
-      canvas.backgroundImage = originalBG;
-      canvas.renderAll();
+      const jsonData = getCleanCanvasState(canvas);
 
       setCanvasData((prev) => {
         const newData = { ...prev, [activeSide]: jsonData };

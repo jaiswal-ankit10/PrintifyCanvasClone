@@ -19,7 +19,7 @@ export default function PreviewCanvas({
       preserveObjectStacking: true,
       width: canvasSize,
       height: canvasSize,
-      backgroundColor: "#ffffff", // Prevents transparency issues
+      backgroundColor: "#ffffff",
     });
 
     const loadContent = async () => {
@@ -38,7 +38,7 @@ export default function PreviewCanvas({
               canvas.remove(obj);
               return;
             }
-            obj.set({ selectable: true, evented: true });
+            obj.set({ selectable: false, evented: false });
 
             // Scale coordinates from 600px edit canvas to 140px grid
             if (!large) {
