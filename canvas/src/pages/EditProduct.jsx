@@ -15,6 +15,87 @@ import MyLibrary from "../components/MyLibrary";
 import Templates from "../components/Templates";
 import PreviewPage from "./PreviewPage";
 
+// helper to exclude system objects (mockup, printGuide) and ghost objects from saved JSON
+const getCleanCanvasState = (canvas) => {
+  if (!canvas) return null;
+
+  const json = canvas.toJSON([
+    "name",
+    "selectable",
+    "evented",
+    "clipPath",
+    "fontFamily",
+    "excludeFromExport",
+  ]);
+
+  if (json.objects) {
+    json.objects = json.objects.filter((obj) => {
+      const type = obj.type.toLowerCase();
+      
+      // EXPLICITLY EXCLUDE System Objects by Name
+      if (obj.name === "mockupBackground" || obj.name === "printGuide") {
+        return false;
+      }
+      
+      // EXPLICITLY EXCLUDE Print Guide by Characteristics
+      // (Dashed Rect, Transparent Fill) - even if name/selectable status is wrong
+      if (
+          type === "rect" && 
+          obj.strokeDashArray && 
+          obj.strokeDashArray.length > 0 && 
+          (!obj.fill || obj.fill === "transparent")
+      ) {
+          return false;
+      }
+
+      // EXPLICITLY EXCLUDE System Objects by Characteristics (if name is lost)
+      // Mockups and PrintGuides are NOT selectable.
+      // User images/text ARE selectable.
+      if (obj.selectable === false && (type === "image" || type === "rect")) {
+        return false;
+      }
+
+      // STRICT "NO NAME, NO SAVE" POLICY for non-text objects
+      // Modified: Trust 'selectable' property.
+      // Fabric.js optimization: If selectable is true (default), it is OMITTED from JSON.
+      // System objects (mockups) have selectable: false, so it IS included.
+      // So, if obj.selectable is TRUE or UNDEFINED, it is a user object.
+      // We only exclude if it is EXPLICITLY false.
+      
+      const isText = type.includes("text");
+      
+      // IMPOSTER DETECTION:
+      // If an object is selectable but looks like a system mockup (Image, No Name, Large),
+      // it is a "Ghost Mockup" that shouldn't be saved.
+      // This prevents the "Shirt in the corner" bug in previews.
+      if (
+        type === "image" &&
+        !obj.name &&
+        // Check if it's large (likely a full shirt background) relative to standard canvas
+        (obj.width > 300 || obj.scaleX * obj.width > 300) 
+      ) {
+        return false;
+      }
+
+      if (obj.selectable !== false) {
+        return true;
+      }
+
+      if (!isText && !obj.name) {
+        return false;
+      }
+      
+      return true; 
+    });
+  }
+
+  // Inject Dimensions for Preview Mapping
+  json.sourceWidth = canvas.width;
+  json.sourceHeight = canvas.height;
+
+  return json;
+};
+
 export default function EditProduct() {
   const { productId } = useParams();
   const canvasAreaRef = useRef(null);
@@ -44,31 +125,7 @@ export default function EditProduct() {
   const currentDimensions = activeSideData.printDimensions;
 
   // helper to exclude system objects (mockup, printGuide) and ghost objects from saved JSON
-  const getCleanCanvasState = (canvas) => {
-    if (!canvas) return null;
-    const json = canvas.toJSON([
-      "name",
-      "selectable",
-      "evented",
-      "clipPath",
-      "fontFamily",
-      "excludeFromExport",
-    ]);
 
-    if (json.objects) {
-      json.objects = json.objects.filter((obj) => {
-        // 1. Allow Text objects
-        if (obj.type === "i-text" || obj.type === "text") return true;
-
-        // 2. Allow explicitly named user content
-        if (obj.name === "user-image" || obj.name === "user-graphic")
-          return true;
-
-        return false;
-      });
-    }
-    return json;
-  };
 
   const handleAddText = (content, fontFamily) => {
     canvasAreaRef.current?.addText(content, fontFamily);
@@ -102,18 +159,20 @@ export default function EditProduct() {
     setActiveSide(newSide);
   };
 
-  const syncCanvasData = (callback) => {
+  const syncCanvasData = useCallback((callback) => {
     const canvas = canvasAreaRef.current?.getCanvas();
     if (canvas) {
       const jsonData = getCleanCanvasState(canvas);
+      console.log("Saving Side:", activeSide, "Objects:", jsonData?.objects?.length);
 
       setCanvasData((prev) => {
         const newData = { ...prev, [activeSide]: jsonData };
+        console.log("Updated CanvasData:", newData);
         if (callback) callback();
         return newData;
       });
     }
-  };
+  }, [activeSide]);
   // Sync canvas state with local state
   useEffect(() => {
     if (canvasAreaRef.current) {
@@ -210,6 +269,7 @@ export default function EditProduct() {
                   setLayers={setLayers}
                   onSelectionChange={handleSelectionChange}
                   onUndoRedoChange={handleUndoRedoChange}
+                  onCanvasChange={syncCanvasData}
                 />
               </div>
 

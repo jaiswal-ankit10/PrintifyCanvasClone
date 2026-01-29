@@ -9,6 +9,23 @@ import * as fabric from "fabric";
 import { Loader2 } from "lucide-react";
 import { useFabric } from "../editor/useFabric";
 
+// Simple debounce
+const useDebounce = (fn, delay) => {
+  const timeoutRef = useRef(null);
+  const fnRef = useRef(fn);
+  
+  useEffect(() => {
+    fnRef.current = fn;
+  }, [fn]);
+
+  return useCallback((...args) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      fnRef.current?.(...args);
+    }, delay);
+  }, [delay]);
+};
+
 const CanvasArea = forwardRef(
   (
     {
@@ -23,10 +40,16 @@ const CanvasArea = forwardRef(
       setLayers,
       onSelectionChange,
       onUndoRedoChange,
+      onCanvasChange,
     },
     ref,
   ) => {
     const canvasRef = useRef(null);
+    
+    // Debounce the change notification to prevent infinite loops and thrashing
+    const debouncedOnCanvasChange = useDebounce(() => {
+      if (onCanvasChange) onCanvasChange();
+    }, 500);
 
     const {
       fabricRef,
@@ -166,6 +189,7 @@ const CanvasArea = forwardRef(
 
             canvas.requestRenderAll();
             syncLayers();
+            if (onCanvasChange) onCanvasChange();
           } catch (error) {
             console.error("Error loading image from URL:", error);
           }
@@ -217,11 +241,13 @@ const CanvasArea = forwardRef(
     useEffect(() => {
       if (!fabricRef.current || !mockup) return;
       const canvas = fabricRef.current;
-      
+
       // Check if mockup exists
-      const existing = canvas.getObjects().find(o => o.name === "mockupBackground");
+      const existing = canvas
+        .getObjects()
+        .find((o) => o.name === "mockupBackground");
       if (!existing) {
-          loadMockup(mockup);
+        loadMockup(mockup);
       }
     }, [mockup, loadMockup]);
 
@@ -230,29 +256,30 @@ const CanvasArea = forwardRef(
       if (!fabricRef.current) return;
       const canvas = fabricRef.current;
 
-      const existingGuide = canvas.getObjects().find((o) => o.name === "printGuide");
+      const existingGuide = canvas
+        .getObjects()
+        .find((o) => o.name === "printGuide");
       if (!existingGuide) {
-          const guide = new fabric.Rect({
-            name: "printGuide",
-            left: canvas.width / 2 + (dimensions.leftOffset || 0),
-            top: canvas.height / 2 + (dimensions.topOffset || 0),
-            width: dimensions.width,
-            height: dimensions.height,
-            originX: "center",
-            originY: "center",
-            fill: "transparent",
-            stroke: "#9a9a9a",
-            strokeDashArray: [5, 5],
-            selectable: false,
-            evented: false,
-          });
-          canvas.add(guide);
-          canvas.requestRenderAll();
+        const guide = new fabric.Rect({
+          name: "printGuide",
+          left: canvas.width / 2 + (dimensions.leftOffset || 0),
+          top: canvas.height / 2 + (dimensions.topOffset || 0),
+          width: dimensions.width,
+          height: dimensions.height,
+          originX: "center",
+          originY: "center",
+          fill: "transparent",
+          stroke: "#9a9a9a",
+          strokeDashArray: [5, 5],
+          selectable: false,
+          evented: false,
+        });
+        canvas.add(guide);
+        canvas.requestRenderAll();
       }
       // Note: We don't remove/update existing guide here to avoid conflict with active resize
       // The updateAllMasks and resizeObserver handle dimensions updates.
     }, [dimensions]);
-
 
     /* Load side JSON & listen for changes */
     const currentSideRef = useRef(activeSide);
@@ -266,13 +293,28 @@ const CanvasArea = forwardRef(
         if (isLoading || !e.target) return;
         enforceSystemObjects();
         syncLayers();
+        
+        const isSystem =
+          e.target.name === "mockupBackground" || e.target.name === "printGuide";
+        if (!isSystem) {
+          debouncedOnCanvasChange();
+        }
       };
 
-      const onRemoved = () => syncLayers();
+      const onRemoved = (e) => {
+        syncLayers();
+        const isSystem =
+          e.target?.name === "mockupBackground" ||
+          e.target?.name === "printGuide";
+        if (!isSystem) {
+          debouncedOnCanvasChange();
+        }
+      };
 
       const onModified = (e) => {
         if (!e.target?.selectable) return;
         syncLayers();
+        debouncedOnCanvasChange();
       };
 
       canvas.on("object:added", onAdded);
@@ -289,6 +331,12 @@ const CanvasArea = forwardRef(
 
         const restoreSystemObjects = () => {
           // 1. Restore Mockup (Force reload to ensure correct side's mockup)
+          // Fix Duplication: Remove existing mockup before loading a new one
+          const oldMockup = canvas
+            .getObjects()
+            .find((o) => o.name === "mockupBackground");
+          if (oldMockup) canvas.remove(oldMockup);
+
           loadMockup(mockup);
 
           // 2. Restore Print Guide
@@ -324,10 +372,25 @@ const CanvasArea = forwardRef(
                 obj.name === "mockupBackground" || obj.name === "printGuide";
               // Check for nameless images/rects that shouldn't be there
               // STRICTER: If it's not text or user-image/graphic, kill it.
-              const isAllowed = obj.type.includes("text") || obj.name === "user-image" || obj.name === "user-graphic";
-              
+              const isAllowed =
+                obj.type.includes("text") ||
+                obj.name === "user-image" ||
+                obj.name === "user-graphic" ||
+                // Allow user objects that might have lost name but are selectable
+                // BUT EXCLUDE anything that looks like an imposter mockup (huge image at 0,0)
+                (obj.selectable === true && obj.width < canvas.width * 0.9);
+
               if (isSystemName || !isAllowed) {
                 canvas.remove(obj);
+              }
+
+              // DOUBLE CHECK: If it is an image, huge, and nameless -> IT IS AN IMPOSTER. KILL IT.
+              if (
+                obj.type === "image" &&
+                !obj.name &&
+                obj.width > canvas.width * 0.5
+              ) {
+                 canvas.remove(obj);
               }
             });
 
@@ -354,17 +417,15 @@ const CanvasArea = forwardRef(
       };
     }, [
       activeSide,
-      // We purposefully omit mockup/dimensions here to prevent reloading JSON just for them. 
-      // The self-healing effects handle them.
-      // sideData, 
-      dimensions, 
+      // sideData, // REMOVED to prevent loop
+      dimensions,
       enforceSystemObjects,
       syncLayers,
       updateAllMasks,
+      onCanvasChange,
     ]);
-
+    
     /* Print guide and Mockup are now handled by the main loading effect */
-
 
     /* Zoom */
     useEffect(() => {
@@ -429,6 +490,7 @@ const CanvasArea = forwardRef(
           </div>
         )}
       </div>
+      
     );
   },
 );

@@ -19,6 +19,10 @@ export default function PreviewPage({
   const activeSideJson = getSideForPreview(activePreview, canvasData);
   const activeMockup = previewMockups[activePreview];
 
+  console.log("Active Preview:", activePreview);
+  console.log("Uses Side:", activeMockup.usesSide);
+  console.log("Side JSON:", activeSideJson);
+
   <PreviewCanvas
     mockupUrl={activeMockup.image}
     sideJson={canvasData[activeMockup.usesSide]}
@@ -49,6 +53,8 @@ export default function PreviewPage({
             colorMode={colorMode}
             onReady={setPreviewCanvas}
             large
+            offsetX={activeMockup.offsetX || 0}
+            offsetY={activeMockup.offsetY || 0}
           />
         </div>
 
