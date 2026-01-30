@@ -303,7 +303,7 @@ export const useFabric = (dimensions, setZoom) => {
       })
       .reverse();
   }, []);
-  // addText
+
   const addText = useCallback(
     (content = "New Text", fontFamily = "sans-serif") => {
       if (!fabricRef.current) return;
@@ -517,6 +517,7 @@ export const useFabric = (dimensions, setZoom) => {
             visible: true,
             name: "user-image",
             userEditable: true,
+            id: imageData.id, // Persist ID
             clipPath: createMask({
               canvas,
               currentDimensions: dimensions,

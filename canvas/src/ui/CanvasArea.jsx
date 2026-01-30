@@ -374,6 +374,7 @@ const CanvasArea = forwardRef(
                 obj.type.includes("text") ||
                 obj.name === "user-image" ||
                 obj.name === "user-graphic" ||
+                obj.userEditable === true ||
                 // Allow user objects that might have lost name but are selectable
                 // BUT EXCLUDE anything that looks like an imposter mockup (huge image at 0,0)
                 (obj.selectable === true && obj.width < canvas.width * 0.9);
@@ -383,9 +384,11 @@ const CanvasArea = forwardRef(
               }
 
               // DOUBLE CHECK: If it is an image, huge, and nameless -> IT IS AN IMPOSTER. KILL IT.
+              // BUT: Spare it if it is explicitly userEditable
               if (
                 obj.type === "image" &&
                 !obj.name &&
+                !obj.userEditable &&
                 obj.width > canvas.width * 0.5
               ) {
                  canvas.remove(obj);

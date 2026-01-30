@@ -26,15 +26,25 @@ const getCleanCanvasState = (canvas) => {
     "clipPath",
     "fontFamily",
     "excludeFromExport",
+    "userEditable",
   ]);
 
   if (json.objects) {
     json.objects = json.objects.filter((obj) => {
       const type = obj.type.toLowerCase();
+
+      // 0. Whitelist Explicitly Editable User Objects
+      if (obj.userEditable) {
+        return true;
+      }
       
       // EXPLICITLY EXCLUDE System Objects by Name
       if (obj.name === "mockupBackground" || obj.name === "printGuide") {
         return false;
+      }
+
+      if (obj.name === "user-image") {
+        return true;
       }
       
       // EXPLICITLY EXCLUDE System Objects by Characteristics (if name is lost)
