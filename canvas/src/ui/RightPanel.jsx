@@ -35,15 +35,20 @@ export default function RightPanel({
     const canvas = canvasRef.current.getCanvas();
     if (!canvas || !obj) return;
 
-    obj.set(properties);
+    obj.set({
+      ...properties,
+      left: properties.left !== undefined ? Number(properties.left) : obj.left,
+      top: properties.top !== undefined ? Number(properties.top) : obj.top,
+    });
 
     obj.setCoords();
-
+    canvas.setActiveObject(obj);
     canvas.requestRenderAll();
-    // Refresh layers by getting updated objects from canvas
+
     const userObjects = canvas
       .getObjects()
       .filter((o) => o.selectable && o.name !== "printGuide");
+
     setLayers([...userObjects].reverse());
   };
 
@@ -84,6 +89,7 @@ export default function RightPanel({
             onSelect={handleSelect}
             onDelete={handleDelete}
             onToggleVisibility={handleToggleVisibility}
+            canvasRef={canvasRef}
           />
         </div>
       </div>

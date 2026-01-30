@@ -96,7 +96,6 @@ export default function PreviewCanvas({
                   (isTypeRect && hasDashedStroke && isTransparent);
 
                 if (isPrintGuide) {
-                  // console.log("Removing Print Guide from Preview:", obj);
                   canvas.remove(obj);
                   return;
                 }
@@ -154,8 +153,6 @@ export default function PreviewCanvas({
                   o.scaleY *= scale;
                   o.setCoords();
                 });
-                // Ungroup to not mess up canvas state?
-                // Actually we didn't add the group to canvas, so objects are fine.
               }
             }
           } catch (err) {

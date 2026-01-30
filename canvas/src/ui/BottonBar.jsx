@@ -44,7 +44,10 @@ export default function BottomBar({ isPanMode, setIsPanMode, zoom, setZoom }) {
           {/* Zoom dropdown */}
           <div className="relative">
             <button
-              onClick={() => setOpen(!open)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen((prev) => !prev);
+              }}
               className="min-w-17.5 h-8 px-2 border border-gray-200  bg-white flex items-center justify-between gap-1 hover:bg-gray-100 cursor-pointer"
             >
               <span className="text-sm font-medium">{zoom}%</span>
@@ -56,7 +59,7 @@ export default function BottomBar({ isPanMode, setIsPanMode, zoom, setZoom }) {
             </button>
 
             {open && (
-              <div className="absolute bottom-10 left-0 w-full bg-white border border-gray-200  shadow-md z-50 ">
+              <div className="absolute z-10 bottom-10 left-0 w-full bg-white border border-gray-200  shadow-md  ">
                 {zoomOptions.map((z) => (
                   <button
                     key={z}

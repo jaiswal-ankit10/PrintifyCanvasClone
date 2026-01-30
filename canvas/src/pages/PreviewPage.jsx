@@ -3,6 +3,7 @@ import PreviewCanvas from "../components/PreviewCanvas";
 import PreviewGrid from "../components/PreviewGrid";
 import { getPreviewMockups } from "../utils/getPreviewMockups";
 import { getSideForPreview } from "../utils/getSideForPreview";
+import { Download } from "lucide-react";
 
 export default function PreviewPage({
   product,
@@ -126,11 +127,17 @@ export default function PreviewPage({
         </div>
       </div>
       {/* DOWNLOAD */}
-      <div className="fixed bottom-0 left-0 flex justify-between items-center w-full bg-white px-4 py-3 border-t border-gray-200">
-        <button onClick={downloadMockup} className="text-xl">
+      <div className="fixed bottom-0 left-0 flex justify-between items-center w-full bg-white px-10 py-2 border-t border-gray-200">
+        <button
+          onClick={downloadMockup}
+          className="text-lg flex items-center gap-2 cursor-pointer hover:border border-gray-200 p-2"
+        >
+          <Download size={18} />
           Download mockup
         </button>
-        <button>Save Product</button>
+        <button className="bg-[#aeff6e] px-20 py-2 cursor-pointer font-medium">
+          Save Product
+        </button>
       </div>
     </div>
   );

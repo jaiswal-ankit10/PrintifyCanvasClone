@@ -91,7 +91,6 @@ const CanvasArea = forwardRef(
             lockRotation: true,
             lockScalingX: true,
             lockScalingY: true,
-            // excludeFromExport: true,
           });
           canvas.sendObjectToBack(obj);
         }
@@ -102,7 +101,6 @@ const CanvasArea = forwardRef(
             evented: false,
             visible: true,
             lockMovementX: true,
-            // excludeFromExport: true,
             lockMovementY: true,
           });
         }

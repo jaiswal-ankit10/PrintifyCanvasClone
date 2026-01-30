@@ -14,12 +14,66 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+const getPrintGuide = (canvas) =>
+  canvas.getObjects().find((o) => o.name === "printGuide");
+
+const alignToPrintGuide = (obj, type, canvas) => {
+  const guide = getPrintGuide(canvas);
+  if (!guide) return;
+
+  const guideLeft = guide.left;
+  const guideTop = guide.top;
+  const guideWidth = guide.getScaledWidth();
+  const guideHeight = guide.getScaledHeight();
+
+  const objWidth = obj.getScaledWidth();
+  const objHeight = obj.getScaledHeight();
+
+  switch (type) {
+    case "left":
+      obj.set({ left: guideLeft });
+      break;
+
+    case "centerX":
+      obj.set({
+        left: guideLeft + (guideWidth - objWidth) / 2,
+      });
+      break;
+
+    case "right":
+      obj.set({
+        left: guideLeft + guideWidth - objWidth,
+      });
+      break;
+
+    case "top":
+      obj.set({ top: guideTop });
+      break;
+
+    case "centerY":
+      obj.set({
+        top: guideTop + (guideHeight - objHeight) / 2,
+      });
+      break;
+
+    case "bottom":
+      obj.set({
+        top: guideTop + guideHeight - objHeight,
+      });
+      break;
+  }
+
+  obj.setCoords();
+  canvas.requestRenderAll();
+};
+
 export default function LayersPanel({
   objects,
   updateObject,
   onSelect,
   onDelete,
   onToggleVisibility,
+  canvasRef,
 }) {
   const [expandedId, setExpandedId] = useState(null);
 
@@ -35,6 +89,12 @@ export default function LayersPanel({
     e.stopPropagation();
     setExpandedId(expandedId === index ? null : index);
     onSelect(obj);
+  };
+
+  const handlePositionChange = (obj, axis, value) => {
+    updateObject(obj, {
+      [axis]: parseFloat(value),
+    });
   };
 
   // console.log(objects);
@@ -152,9 +212,11 @@ export default function LayersPanel({
                     <div className="flex border border-gray-200 rounded overflow-hidden">
                       <input
                         type="text"
-                        value="45.00"
+                        value={Math.round(obj.left)}
+                        onChange={(e) =>
+                          handlePositionChange(obj, "left", e.target.value)
+                        }
                         className="w-full p-3 text-sm outline-none bg-gray-50 text-[#2f2e0c]"
-                        readOnly
                       />
                       <span className="bg-gray-50 px-3 py-4 text-sm font-bold text-[#65644b] border-l border-gray-200">
                         %
@@ -168,9 +230,11 @@ export default function LayersPanel({
                     <div className="flex border border-gray-200 rounded overflow-hidden">
                       <input
                         type="text"
-                        value="50.00"
+                        value={Math.round(obj.top)}
+                        onChange={(e) =>
+                          handlePositionChange(obj, "top", e.target.value)
+                        }
                         className="w-full p-3 text-sm outline-none bg-gray-50 text-[#2f2e0c]"
-                        readOnly
                       />
                       <span className="bg-gray-50 px-3 py-4 text-sm border-l border-gray-200 font-bold text-[#65644b]">
                         %
@@ -186,24 +250,75 @@ export default function LayersPanel({
                   </label>
                   <div className="grid grid-cols-6 gap-1">
                     <button
-                      onClick={() => updateObject(obj, { left: 0 })}
-                      className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center"
+                      onClick={() =>
+                        alignToPrintGuide(
+                          obj,
+                          "left",
+                          canvasRef.current.getCanvas(),
+                        )
+                      }
+                      className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center cursor-pointer"
                     >
                       <ArrowLeftToLine size={18} />
                     </button>
-                    <button className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center">
+                    <button
+                      onClick={() =>
+                        alignToPrintGuide(
+                          obj,
+                          "centerX",
+                          canvasRef.current.getCanvas(),
+                        )
+                      }
+                      className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center cursor-pointer"
+                    >
                       <FoldHorizontal size={18} />
                     </button>
-                    <button className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center">
+                    <button
+                      onClick={() =>
+                        alignToPrintGuide(
+                          obj,
+                          "right",
+                          canvasRef.current.getCanvas(),
+                        )
+                      }
+                      className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center cursor-pointer"
+                    >
                       <ArrowRightToLine size={18} />
                     </button>
-                    <button className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center">
+                    <button
+                      onClick={() =>
+                        alignToPrintGuide(
+                          obj,
+                          "top",
+                          canvasRef.current.getCanvas(),
+                        )
+                      }
+                      className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center cursor-pointer"
+                    >
                       <ArrowUpToLine size={18} />
                     </button>
-                    <button className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center">
+                    <button
+                      onClick={() =>
+                        alignToPrintGuide(
+                          obj,
+                          "centerY",
+                          canvasRef.current.getCanvas(),
+                        )
+                      }
+                      className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center cursor-pointer"
+                    >
                       <FoldVertical size={18} />
                     </button>
-                    <button className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center">
+                    <button
+                      onClick={() =>
+                        alignToPrintGuide(
+                          obj,
+                          "bottom",
+                          canvasRef.current.getCanvas(),
+                        )
+                      }
+                      className="p-2 border border-gray-200 rounded hover:bg-gray-50 flex items-center justify-center cursor-pointer"
+                    >
                       <ArrowDownToLine size={18} />
                     </button>
                   </div>

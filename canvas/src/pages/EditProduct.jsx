@@ -113,8 +113,6 @@ export default function EditProduct() {
   const activeSideData = product.sides.find((s) => s.key === activeSide);
   const currentDimensions = activeSideData.printDimensions;
 
-  // helper to exclude system objects (mockup, printGuide) and ghost objects from saved JSON
-
 
   const handleAddText = (content, fontFamily) => {
     canvasAreaRef.current?.addText(content, fontFamily);

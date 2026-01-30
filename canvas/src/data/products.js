@@ -235,6 +235,8 @@ export const products = [
         image: "/previews/crewneck/Person1.png",
         usesSide: "front",
         printArea: {
+          width: 1200,
+          height: 0,
           topOffset: 20,
           leftOffset: 0,
           rotation: 0,
@@ -245,6 +247,8 @@ export const products = [
         image: "/previews/crewneck/Person2.png",
         usesSide: "front",
         printArea: {
+          width: 1200,
+          height: 0,
           topOffset: 20,
           leftOffset: 0,
           rotation: 0,
@@ -314,8 +318,8 @@ export const products = [
         image: "/previews/t-shirt/Folded.png",
         usesSide: "front",
         printArea: {
-          topOffset: 0,
-          leftOffset: 0,
+          topOffset: 60,
+          leftOffset: -20,
           rotation: 18,
         },
       },
@@ -324,9 +328,9 @@ export const products = [
         image: "/previews/t-shirt/Person1Front.png",
         usesSide: "front",
         printArea: {
-          topOffset: 0,
-          leftOffset: 0,
-          rotation: 10,
+          topOffset: 40,
+          leftOffset: -20,
+          rotation: 5,
         },
       },
       person1Back: {
@@ -344,7 +348,7 @@ export const products = [
         image: "/previews/t-shirt/Person2.png",
         usesSide: "front",
         printArea: {
-          topOffset: 0,
+          topOffset: 30,
           leftOffset: 0,
           rotation: 0,
         },
@@ -354,9 +358,9 @@ export const products = [
         image: "/previews/t-shirt/Person3Front.png",
         usesSide: "front",
         printArea: {
-          topOffset: 0,
+          topOffset: 30,
           leftOffset: 0,
-          rotation: 0,
+          rotation: -2,
         },
       },
       person3Back: {

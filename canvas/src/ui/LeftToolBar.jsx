@@ -30,7 +30,7 @@ function LeftToolbar({
       action: () => window.history.back(),
     },
     { label: "Upload", icon: <Upload size={20} />, action: onUpload },
-    { label: "AI", icon: <Sparkles size={20} /> },
+    // { label: "AI", icon: <Sparkles size={20} /> },
     { label: "Add text", icon: <Type size={20} />, action: onAddText },
     { label: "My library", icon: <FolderOpen size={20} /> },
     { label: "Graphics", icon: <Shapes size={20} />, action: addGraphics },

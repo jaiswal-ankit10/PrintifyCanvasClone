@@ -20,6 +20,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 
 const GOOGLE_FONTS_API_KEY = import.meta.env.VITE_GOOGLE_FONT_API;
+export const FONT_SIZES = [
+  8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 48, 56, 64, 72,
+  80, 96, 120, 144,
+];
 
 export default function TopBar({
   activeMode,
@@ -36,10 +40,13 @@ export default function TopBar({
   onChangeColor,
 }) {
   const pickerRef = useRef(null);
+  const fontFamilyRef = useRef(null);
+  const fontSizeRef = useRef(null);
+
   const [showPicker, setShowPicker] = useState(false);
   const [showAlignment, setShowAlignment] = useState(false);
   const [showFontFamily, setShowFontFamily] = useState(false);
-  const [showfontSize, setShowFontSize] = useState(false);
+  const [showFontSize, setShowFontSize] = useState(false);
 
   const [fonts, setFonts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +57,88 @@ export default function TopBar({
     selectedObject?.type === "i-text" || selectedObject?.type === "text";
   const isShape =
     selectedObject?.type === "group" || selectedObject?.name === "user-graphic";
+
+  const loadGoogleFont = (fontFamily) => {
+    return new Promise((resolve) => {
+      const fontName = fontFamily.replace(/ /g, "+");
+
+      if (document.getElementById(`font-${fontName}`)) {
+        resolve();
+        return;
+      }
+
+      const link = document.createElement("link");
+      link.id = `font-${fontName}`;
+      link.rel = "stylesheet";
+      link.href = `https://fonts.googleapis.com/css2?family=${fontName}:ital,wght@0,300;0,400;0,600;0,700;1,400;1,700&display=swap`;
+      link.onload = resolve;
+
+      document.head.appendChild(link);
+    });
+  };
+
+  const toggleBold = async () => {
+    if (!selectedObject || !isText) return;
+
+    await loadGoogleFont(selectedObject.fontFamily);
+
+    const isBold =
+      selectedObject.fontWeight === "bold" || selectedObject.fontWeight === 700;
+
+    selectedObject.set({
+      fontWeight: isBold ? 400 : 700,
+      dirty: true,
+    });
+
+    selectedObject.initDimensions();
+    selectedObject.canvas.requestRenderAll();
+  };
+  const toggleItalic = async () => {
+    if (!selectedObject || !isText) return;
+
+    await loadGoogleFont(selectedObject.fontFamily);
+
+    const isItalic = selectedObject.fontStyle === "italic";
+
+    selectedObject.set({
+      fontStyle: isItalic ? "normal" : "italic",
+      dirty: true,
+    });
+
+    selectedObject.initDimensions();
+    selectedObject.canvas.requestRenderAll();
+  };
+
+  const handleFontSelect = async (fontFamily) => {
+    if (!selectedObject || !isText) return;
+
+    setIsFontLoading(true);
+    await loadGoogleFont(fontFamily);
+    selectedObject.set("fontFamily", fontFamily);
+
+    selectedObject.canvas.requestRenderAll();
+
+    setShowFontFamily(false);
+    setIsFontLoading(false);
+  };
+
+  const handleFontSize = (size) => {
+    if (!selectedObject || !isText) return;
+
+    selectedObject.set("fontSize", size);
+    selectedObject.canvas.requestRenderAll();
+  };
+
+  const setTextAlign = (align) => {
+    if (!selectedObject || !isText) return;
+
+    selectedObject.set({
+      textAlign: align,
+      dirty: true,
+    });
+    selectedObject.canvas.requestRenderAll();
+    setShowAlignment(false);
+  };
 
   useEffect(() => {
     const fetchFonts = async () => {
@@ -97,6 +186,13 @@ export default function TopBar({
       if (pickerRef.current && !pickerRef.current.contains(e.target)) {
         setShowPicker(false);
       }
+      if (fontFamilyRef.current && !fontFamilyRef.current.contains(e.target)) {
+        setShowFontFamily(false);
+      }
+
+      if (fontSizeRef.current && !fontSizeRef.current.contains(e.target)) {
+        setShowFontSize(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -142,8 +238,12 @@ export default function TopBar({
                 <div className="flex items-center gap-2">
                   <div>
                     <button
+                      ref={fontFamilyRef}
                       className="relative flex items-center gap-1 px-3 py-1 border border-gray-300 rounded  hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setShowFontFamily((prev) => !prev)}
+                      onClick={() => {
+                        setShowFontFamily((prev) => !prev);
+                        setShowFontSize(false);
+                      }}
                     >
                       <span className="text-md font-medium">
                         {selectedObject.fontFamily}
@@ -186,7 +286,7 @@ export default function TopBar({
                               {filteredFonts.map((font) => (
                                 <button
                                   key={font.family}
-                                  // onClick={() => handleFontSelect(font.family)}
+                                  onClick={() => handleFontSelect(font.family)}
                                   className="w-full text-left py-4 px-3 hover:bg-[#f5f5f0] transition-all border-b border-gray-50 group flex justify-between items-center cursor-pointer rounded-md"
                                 >
                                   <span
@@ -209,33 +309,52 @@ export default function TopBar({
                     )}
                   </div>
 
-                  <button className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded  hover:bg-gray-50 cursor-pointer">
-                    <span className="text-md font-medium">
-                      {selectedObject.fontSize}
-                    </span>
-                    <span>
-                      <ChevronDown />
-                    </span>
-                  </button>
+                  <div>
+                    <button
+                      ref={fontSizeRef}
+                      onClick={() => {
+                        setShowFontSize((prev) => !prev);
+                        setShowFontFamily(false);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1 border border-gray-300 rounded  hover:bg-gray-50 cursor-pointer"
+                    >
+                      <span className="text-md font-medium">
+                        {selectedObject.fontSize}
+                      </span>
+                      <span>
+                        <ChevronDown />
+                      </span>
+                    </button>
+
+                    {showFontSize && (
+                      <div className="absolute z-10 bg-white p-2 border border-gray-200 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                        {FONT_SIZES.map((size) => (
+                          <button
+                            key={size}
+                            onClick={() => handleFontSize(size)}
+                            className="px-3 py-2 hover:bg-gray-100 text-sm flex flex-col text-left cursor-pointer"
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {isText && (
                 <div className="flex items-center gap-2 border-l pl-3 border-gray-300 relative">
                   <button
-                    onClick={() =>
-                      onChangeTextAttribute(
-                        "fontWeight",
-                        selectedObject.fontWeight === "bold"
-                          ? "normal"
-                          : "bold",
-                      )
-                    }
-                    className={`p-1.5 rounded hover:bg-gray-100 ${selectedObject.fontWeight === "bold" ? "bg-gray-200" : ""} cursor-pointer`}
+                    onClick={toggleBold}
+                    className={`p-1.5 rounded hover:bg-gray-100 ${selectedObject.fontWeight === 700 ? "bg-gray-200" : ""} cursor-pointer`}
                   >
                     <Bold size={20} />
                   </button>
-                  <button className="p-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                  <button
+                    onClick={toggleItalic}
+                    className="p-1.5 rounded hover:bg-gray-100 cursor-pointer"
+                  >
                     <Italic size={20} />
                   </button>
                   <div className="h-6 w-px bg-gray-300 mx-1" />
@@ -247,13 +366,22 @@ export default function TopBar({
                   </button>
                   {showAlignment && (
                     <div className="absolute top-11 left-20 bg-white border border-gray-200 rounded z-10">
-                      <button className="p-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                      <button
+                        onClick={() => setTextAlign("left")}
+                        className="p-1.5 rounded hover:bg-gray-100 cursor-pointer"
+                      >
                         <AlignLeft size={20} />
                       </button>
-                      <button className="p-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                      <button
+                        onClick={() => setTextAlign("center")}
+                        className="p-1.5 rounded hover:bg-gray-100 cursor-pointer"
+                      >
                         <AlignCenter size={20} />
                       </button>
-                      <button className="p-1.5 rounded hover:bg-gray-100 cursor-pointer">
+                      <button
+                        onClick={() => setTextAlign("right")}
+                        className="p-1.5 rounded hover:bg-gray-100 cursor-pointer"
+                      >
                         <AlignRight size={20} />
                       </button>
                     </div>
