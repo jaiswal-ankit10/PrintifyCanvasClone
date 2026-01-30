@@ -51,6 +51,7 @@ export default function PreviewPage({
             large
             offsetX={activeMockup.offsetX || 0}
             offsetY={activeMockup.offsetY || 0}
+            printArea={activeMockup.printArea}
           />
         </div>
 

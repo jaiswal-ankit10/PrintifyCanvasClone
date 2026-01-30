@@ -9,6 +9,7 @@ export default function PreviewCanvas({
   colorMode = "rgb",
   offsetX = 0,
   offsetY = 0,
+  printArea,
 }) {
   const canvasRef = useRef(null);
 
@@ -42,18 +43,39 @@ export default function PreviewCanvas({
             const sourceHeight = sideJson.sourceHeight;
 
             if (sourceWidth && sourceHeight) {
-              const previewCenter = canvas.getCenterPoint();
-              const sourceCenterX = sourceWidth / 2;
-              const sourceCenterY = sourceHeight / 2;
+                let previewCenter = canvas.getCenterPoint();
+                
+                // Calculate Scale Helper:
+                // Default: Editor Mockup Scale: 0.8 * sourceHeight (approx) -> Preview Mockup Scale: 0.95 * canvasSize
+                let scaleFactor = (canvasSize * 0.95) / (sourceHeight * 0.8);
 
-              // Calculate Scale Helper:
-              // Editor Mockup Scale: 0.8 * sourceHeight (approx)
-              // Preview Mockup Scale: 0.95 * canvasSize
-              // Scale Factor = (0.95 * canvasSize) / (0.8 * sourceHeight)
-              // Note: using 0.8 as the factor used in useFabric.js (loadMockup)
-              const scaleFactor = (canvasSize * 0.95) / (sourceHeight * 0.8);
+                // OVERRIDE IF PRINT AREA DEFINED
+                if (printArea) {
+                    // Determine scale relative to 600px standard
+                    const guideScale = large ? 1 : (canvasSize / 600);
+                    
+                    // 1. New Center & Offsets
+                    const centerX = canvasSize / 2;
+                    const centerY = canvasSize / 2;
+                    
+                    previewCenter = {
+                        x: centerX + ((printArea.leftOffset || 0) * guideScale),
+                        y: centerY + ((printArea.topOffset || 0) * guideScale)
+                    };
 
-              canvas.getObjects().forEach((obj) => {
+                    // 2. New Scale Factor (ONLY IF WIDTH DEFINED)
+                    if (printArea.width) {
+                         const areaWidth = printArea.width * guideScale;
+                         // Map sourceWidth -> areaWidth
+                         scaleFactor = areaWidth / sourceWidth;
+                    }
+                }
+
+                const sourceCenterX = sourceWidth / 2;
+                const sourceCenterY = sourceHeight / 2;
+                const rotationRad = printArea && printArea.rotation ? printArea.rotation * (Math.PI / 180) : 0;
+
+                canvas.getObjects().forEach((obj) => {
                 // 1. Force Visible / Unlock
                 obj.set({
                   selectable: false,
@@ -76,26 +98,33 @@ export default function PreviewCanvas({
                 if (isPrintGuide) {
                   // console.log("Removing Print Guide from Preview:", obj);
                   canvas.remove(obj);
-                  return; // Skip scaling removed object
+                  return;
                 }
 
                 // 3. Shift to Origin (relative to source center)
                 const relX = obj.left - sourceCenterX;
                 const relY = obj.top - sourceCenterY;
 
-                // 4. Scale Position & Object
-                // Add Optional Offset (scaled to Preview)
-                obj.left =
-                  previewCenter.x +
-                  relX * scaleFactor +
-                  offsetX * (large ? 1 : 0.2);
-                // Note: If offsetX is pixels in 600px preview, we apply it directly.
-                // If large=false (140px), we should scale the offset too.
+                // 4. Scale Position
+                let newX = relX * scaleFactor;
+                let newY = relY * scaleFactor;
 
-                obj.top =
-                  previewCenter.y +
-                  relY * scaleFactor +
-                  offsetY * (large ? 1 : 0.2);
+                // 5. Apply Rotation
+                // Rotate (newX, newY) around (0,0) which corresponds to the printArea center
+                if (rotationRad !== 0) {
+                    const cos = Math.cos(rotationRad);
+                    const sin = Math.sin(rotationRad);
+                    const rotX = newX * cos - newY * sin;
+                    const rotY = newX * sin + newY * cos;
+                    newX = rotX;
+                    newY = rotY;
+
+                    obj.angle += (printArea.rotation || 0);
+                }
+
+                // 6. Set Final Position
+                obj.left = previewCenter.x + newX;
+                obj.top = previewCenter.y + newY;
 
                 obj.scaleX *= scaleFactor;
                 obj.scaleY *= scaleFactor;
